@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyIWf8wv7DaMy4W0Y9wB7VNvIdVrUcIi2ohW6xPaDKMENaLwtWS_OX6lFjsXzobmexZ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_oiaPaaIBa7AYq8oN_G1sf0vcTrkQTY1W32U7MftAKZLsqD4wYWYe-VUzpUE0Yn1D/exec';
 
 // ============================================================
 // 평가 항목
@@ -424,58 +424,64 @@ function closePhotoSheet() {
 }
 
 // ============================================================
-// 사진 추가 (백그라운드 업로드 — 다음 버튼 안 막음)
+// 사진 추가 (순차 처리 — 폴더 중복 생성 방지, 백그라운드 업로드)
 // ============================================================
 function addPhoto(input) {
   const qid   = input.dataset.qid;
   const files  = Array.from(input.files);
   if (!files.length) return;
-  input.value = ''; // 같은 파일 재선택 가능하게 초기화
+  input.value = '';
 
-  if (!answers[qid].photoUrls)  answers[qid].photoUrls  = [];
+  if (!answers[qid].photoUrls)    answers[qid].photoUrls    = [];
   if (!answers[qid].photoPreviews) answers[qid].photoPreviews = [];
 
-  files.forEach(file => {
-    compress(file, 800, 0.6).then(b64 => {
-      const idx = answers[qid].photoPreviews.length;
-      answers[qid].photoPreviews.push({ b64, url: null, uploading: true });
-      renderPhotoPreviews(qid);
+  // 먼저 미리보기 자리만 만들어 두고 (즉각 반응)
+  const startIdx = answers[qid].photoPreviews.length;
+  files.forEach((_, i) => {
+    answers[qid].photoPreviews.push({ b64: null, url: null, uploading: true });
+  });
+  renderPhotoPreviews(qid);
 
-      const base64 = b64.split(',')[1];
-      const empId  = 'AD' + (document.getElementById('inp-empid')?.value.trim() || '');
-      const store  = selectedOrg.store;
+  // 순차 압축 + 순차 업로드 (async IIFE)
+  (async () => {
+    for (let i = 0; i < files.length; i++) {
+      const idx = startIdx + i;
+      try {
+        const b64 = await compress(files[i], 800, 0.6);
+        answers[qid].photoPreviews[idx].b64 = b64;
+        renderPhotoPreviews(qid);
 
-      fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'uploadPhoto', base64, mimeType: 'image/jpeg',
-          empId, store,
-          org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
-          questionId: qid,
-          photoIndex: idx + 1
-        })
-      })
-      .then(r => r.json())
-      .then(r => {
+        const base64 = b64.split(',')[1];
+        const empId  = 'AD' + (document.getElementById('inp-empid')?.value.trim() || '');
+        const store  = selectedOrg.store;
+
+        const res = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'uploadPhoto', base64, mimeType: 'image/jpeg',
+            empId, store,
+            org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
+            questionId: qid,
+            photoIndex: idx + 1
+          })
+        });
+        const r = await res.json();
         if (r.ok) {
           answers[qid].photoPreviews[idx].url = r.fileUrl;
           answers[qid].photoPreviews[idx].uploading = false;
-          // photoUrls 동기화
           answers[qid].photoUrls = answers[qid].photoPreviews.filter(p => p.url).map(p => p.url);
           if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
         } else {
           answers[qid].photoPreviews[idx].uploading = false;
           answers[qid].photoPreviews[idx].error = true;
         }
-        renderPhotoPreviews(qid);
-      })
-      .catch(() => {
+      } catch(e) {
         answers[qid].photoPreviews[idx].uploading = false;
         answers[qid].photoPreviews[idx].error = true;
-        renderPhotoPreviews(qid);
-      });
-    });
-  });
+      }
+      renderPhotoPreviews(qid);
+    }
+  })();
 }
 
 function removePhoto(qid, idx) {
