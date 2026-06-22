@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwnVV8cTy8YNmBfu4DdYduyruWIA4syVgOH-G9tMZ1lpau1mAE0fnr0YYJ1HxH57_U/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_oiaPaaIBa7AYq8oN_G1sf0vcTrkQTY1W32U7MftAKZLsqD4wYWYe-VUzpUE0Yn1D/exec';
 
 // ============================================================
 // 평가 항목
@@ -320,9 +320,47 @@ function goNext() {
     return;
   }
   if (currentIdx < EVAL_ITEMS.length - 1) showCard(currentIdx + 1);
-  else showScreen('screen-sign');
+  else {
+    // 최종 제출 화면 진입 시 요약 정보 표시
+    buildSubmitSummary();
+    showScreen('screen-sign');
+  }
 }
 function jumpToLast() { showCard(EVAL_ITEMS.length - 1); }
+
+// 최종 제출 전 요약 카드 생성
+function buildSubmitSummary() {
+  const el = document.getElementById('submit-summary');
+  if (!el) return;
+  const SCORES = {q01:{상:10,중:0,하:0},q02:{상:10,중:5,하:0},q03:{상:15,중:0,하:0},
+                  q04:{상:10,중:0,하:0},q05:{상:10,중:0,하:0},q06:{상:15,중:8,하:0},q07:{상:5,중:3,하:0}};
+  let raw = 0;
+  EVAL_ITEMS.forEach(item => { const lv = answers[item.id]?.score; if (lv) raw += SCORES[item.id][lv] || 0; });
+  const score = Math.round((raw / 75) * 1000) / 10;
+  const grade = score >= 90 ? '우수' : score >= 70 ? '양호' : '미흡';
+  const gradeColor = score >= 90 ? '#E60012' : score >= 70 ? '#f59e0b' : '#64748b';
+
+  const rows = EVAL_ITEMS.map(item => {
+    const lv = answers[item.id]?.score || '-';
+    const lvColor = lv==='상'?'#2F855A':lv==='중'?'#D89B00':'#E60012';
+    const shortTitle = item.title.replace(/\n/g,' ').substring(0, 18) + '…';
+    return `<div class="summary-row">
+      <span class="summary-title">${shortTitle}</span>
+      <span class="summary-badge" style="background:${lvColor}">${lv}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="summary-score-row">
+      <span class="summary-score-num" style="color:${gradeColor}">${score}점</span>
+      <span class="summary-grade" style="border-color:${gradeColor};color:${gradeColor}">${grade}</span>
+    </div>
+    <div class="summary-info">
+      <span>매장: ${selectedOrg.store}</span>
+      <span>${document.getElementById('inp-name').value}</span>
+    </div>
+    <div class="summary-items">${rows}</div>`;
+}
 
 function showCard(idx) {
   document.querySelectorAll('.eval-card').forEach(c => c.classList.remove('active'));
@@ -359,7 +397,57 @@ function updateNav() {
   const prev = document.getElementById('btn-prev');
   const next = document.getElementById('btn-next');
   if (prev) prev.style.visibility = currentIdx === 0 ? 'hidden' : 'visible';
-  if (next) next.textContent = currentIdx === EVAL_ITEMS.length - 1 ? '서명하기 →' : '다음 →';
+  if (next) next.textContent = currentIdx === EVAL_ITEMS.length - 1 ? '제출하기 →' : '다음 →';
+}
+
+// ============================================================
+// 사진 업로드 팝업 표시
+// ============================================================
+function showUploadPopup(qid, total) {
+  let popup = document.getElementById('upload-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'upload-popup';
+    popup.className = 'upload-popup';
+    document.body.appendChild(popup);
+  }
+  popup.innerHTML = `
+    <div class="upload-popup-inner">
+      <div class="upload-popup-title"><span class="spinner"></span> 사진 업로드 중...</div>
+      <div id="upload-popup-list"></div>
+    </div>`;
+  popup.style.display = 'flex';
+
+  // 체크리스트 초기화
+  const list = document.getElementById('upload-popup-list');
+  list.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const row = document.createElement('div');
+    row.className = 'upload-item';
+    row.id = `upload-item-${qid}-${i}`;
+    row.innerHTML = `<span class="upload-item-icon">⏳</span> ${i+1}번 사진`;
+    list.appendChild(row);
+  }
+}
+
+function updateUploadItem(qid, index, success) {
+  const row = document.getElementById(`upload-item-${qid}-${index}`);
+  if (!row) return;
+  row.querySelector('.upload-item-icon').textContent = success ? '✅' : '❌';
+  row.style.color = success ? '#16a34a' : '#E60012';
+  row.style.fontWeight = '700';
+}
+
+function hideUploadPopup(allDone) {
+  const popup = document.getElementById('upload-popup');
+  if (!popup) return;
+  if (allDone) {
+    const title = popup.querySelector('.upload-popup-title');
+    if (title) title.innerHTML = '✅ 업로드 완료!';
+    setTimeout(() => { popup.style.display = 'none'; }, 1200);
+  } else {
+    popup.style.display = 'none';
+  }
 }
 
 // ============================================================
@@ -376,8 +464,10 @@ async function onPhoto(input) {
 
   const previews = [];
   let done = 0;
+  let allSuccess = true;
 
-  st.innerHTML = `<span class="spinner"></span> 0 / ${files.length}장 업로드 중...`;
+  // 팝업 표시
+  showUploadPopup(qid, files.length);
 
   for (let i = 0; i < files.length; i++) {
     try {
@@ -404,20 +494,27 @@ async function onPhoto(input) {
       if (r.ok) {
         answers[qid].photoUrls.push(r.fileUrl);
         if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
+        updateUploadItem(qid, i, true);
+      } else {
+        allSuccess = false;
+        updateUploadItem(qid, i, false);
       }
-
-      st.innerHTML = done < files.length
-        ? `<span class="spinner"></span> ${done} / ${files.length}장 업로드 중...`
-        : `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
-          + previews.filter(Boolean).map(b =>
-              `<img src="${b}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
-            ).join('');
 
     } catch(e) {
       done++;
-      st.innerHTML = `<span style="color:#E60012;font-size:13px">⚠️ ${i+1}번 사진 업로드 실패. 다시 시도해주세요.</span>`;
+      allSuccess = false;
+      updateUploadItem(qid, i, false);
     }
   }
+
+  hideUploadPopup(allSuccess);
+
+  st.innerHTML = allSuccess
+    ? `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
+      + previews.filter(Boolean).map(b =>
+          `<img src="${b}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
+        ).join('')
+    : `<span style="color:#E60012;font-size:13px">⚠️ 일부 사진 업로드 실패. 다시 시도해주세요.</span>`;
 }
 
 function compress(file, max, q) {

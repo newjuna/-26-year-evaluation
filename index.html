@@ -36,7 +36,7 @@
       </div>
       <div class="guide-step guide-step-hidden" id="gs-3">
         <div class="guide-num">4</div>
-        <div class="guide-text">7개 항목 평가 후 <b>서명하고 제출</b>하면 완료됩니다.</div>
+        <div class="guide-text">7개 항목 평가 후 <b>제출</b>하면 완료됩니다.</div>
       </div>
     </div>
 
@@ -150,18 +150,21 @@
 </div>
 
 <!-- ══════════════════════
-     화면3: 서명 제거 — 평가 완료 후 바로 제출
+     화면3: 최종 제출 확인
 ══════════════════════ -->
 <div id="screen-sign" class="screen">
-  <div class="form-card" style="margin-bottom:90px;text-align:center;padding-top:40px">
-    <div style="font-size:48px;margin-bottom:16px">✅</div>
-    <div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:10px">7개 항목 평가 완료</div>
-    <div style="font-size:14px;color:var(--g500);margin-bottom:24px">아래 제출하기 버튼을 눌러 최종 제출하세요.</div>
-    <div id="sign-err" class="alert-msg" style="display:none;margin-top:10px">제출 중 오류가 발생했습니다.</div>
+  <div class="submit-confirm-wrap">
+    <div class="submit-confirm-card">
+      <div class="submit-confirm-icon">📋</div>
+      <div class="submit-confirm-title">평가가 모두 완료됐어요</div>
+      <div class="submit-confirm-sub">아래 내용을 확인하고 제출해주세요</div>
+      <div class="submit-summary" id="submit-summary"></div>
+      <div id="sign-err" class="alert-msg" style="display:none;margin-top:10px">제출 중 오류가 발생했습니다.</div>
+    </div>
   </div>
   <div class="bottom-bar two-col">
     <button class="btn btn-gray" onclick="showScreen('screen-eval');jumpToLast()">← 이전</button>
-    <button class="btn btn-primary" id="btn-submit" onclick="submitEval()">제출하기</button>
+    <button class="btn btn-primary" id="btn-submit" onclick="submitEval()">최종 제출</button>
   </div>
 </div>
 
