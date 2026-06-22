@@ -58,18 +58,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// 가이드 팝업 — 조직도 JSON 로드와 동시 진행
+// 가이드 팝업 — org.json은 빠르게 로드되므로 즉시 표시
 // ============================================================
 function startGuideAndLoad() {
-  loadOrgTree();  // GitHub assets/org.json 로드 (GAS 호출 없음)
+  loadOrgTree();  // GitHub assets/org.json 로드 (거의 즉시)
 
+  // 스텝 전부 즉시 표시
   [0,1,2,3].forEach(i => {
-    setTimeout(() => {
-      const el = document.getElementById(`gs-${i}`);
-      if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
-      if (i === 3) { guideStepsAllShown = true; tryActivateGuideBtn(); }
-    }, 2000 * (i + 1));
+    const el = document.getElementById(`gs-${i}`);
+    if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
   });
+  guideStepsAllShown = true;
+  // orgLoaded도 거의 동시에 완료되므로 tryActivateGuideBtn은 loadOrgTree 완료 후 호출됨
 }
 
 function tryActivateGuideBtn() {
