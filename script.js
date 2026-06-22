@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwNsppljZAM5Ty154fEWh7qK2-np1OGzCZ63JAMy2iGZv_KA1vmcRaKmhTgcphAGYKD/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -53,7 +53,7 @@ let guideStepsAllShown = false;
 // 초기화
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  initSignCanvas();
+  // 서명 화면 제거했으므로 initSignCanvas 호출 안 함
   startGuideAndLoad();
 });
 
@@ -63,13 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function startGuideAndLoad() {
   loadOrgTree();  // GitHub assets/org.json 로드 (거의 즉시)
 
-  // 스텝 4개를 0.6초 간격으로 순차 등장 (총 2.4초)
+  // 스텝 4개를 0.6초 간격으로 순차 등장 (팝업 등장 후 0.4초 뒤 시작)
   [0,1,2,3].forEach(i => {
     setTimeout(() => {
       const el = document.getElementById(`gs-${i}`);
       if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
       if (i === 3) { guideStepsAllShown = true; tryActivateGuideBtn(); }
-    }, 600 * (i + 1));
+    }, 400 + 600 * (i + 1));
   });
 }
 
