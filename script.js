@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyNhS4gi00myd21md6VcW8rJHyV-dv0ox0SaFfybWOExo3rx-4PggZNNwmkb9EhwdYe/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_oiaPaaIBa7AYq8oN_G1sf0vcTrkQTY1W32U7MftAKZLsqD4wYWYe-VUzpUE0Yn1D/exec';
 
 // ============================================================
 // 평가 항목
@@ -502,118 +502,6 @@ function renderPhotoPreviews(qid) {
 
 // 기존 onPhoto는 더 이상 사용 안 하지만 호환성을 위해 빈 함수로 유지
 function onPhoto(input) {}
-  let popup = document.getElementById('upload-popup');
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.id = 'upload-popup';
-    popup.className = 'upload-popup';
-    document.body.appendChild(popup);
-  }
-  popup.innerHTML = `
-    <div class="upload-popup-inner">
-      <div class="upload-popup-title"><span class="spinner"></span> 사진 업로드 중...</div>
-      <div id="upload-popup-list"></div>
-    </div>`;
-  popup.style.display = 'flex';
-
-  // 체크리스트 초기화
-  const list = document.getElementById('upload-popup-list');
-  list.innerHTML = '';
-  for (let i = 0; i < total; i++) {
-    const row = document.createElement('div');
-    row.className = 'upload-item';
-    row.id = `upload-item-${qid}-${i}`;
-    row.innerHTML = `<span class="upload-item-icon">⏳</span> ${i+1}번 사진`;
-    list.appendChild(row);
-  }
-}
-
-function updateUploadItem(qid, index, success) {
-  const row = document.getElementById(`upload-item-${qid}-${index}`);
-  if (!row) return;
-  row.querySelector('.upload-item-icon').textContent = success ? '✅' : '❌';
-  row.style.color = success ? '#16a34a' : '#E60012';
-  row.style.fontWeight = '700';
-}
-
-function hideUploadPopup(allDone) {
-  const popup = document.getElementById('upload-popup');
-  if (!popup) return;
-  if (allDone) {
-    const title = popup.querySelector('.upload-popup-title');
-    if (title) title.innerHTML = '✅ 업로드 완료!';
-    setTimeout(() => { popup.style.display = 'none'; }, 1200);
-  } else {
-    popup.style.display = 'none';
-  }
-}
-
-// ============================================================
-// 사진 즉시 업로드 (순차 처리 — 폴더 중복 생성 방지)
-// ============================================================
-async function onPhoto(input) {
-  const qid   = input.dataset.qid;
-  const files = Array.from(input.files);
-  if (!files.length) return;
-
-  const st = document.getElementById(`photo-st-${qid}`);
-  if (!answers[qid].photoUrls) answers[qid].photoUrls = [];
-  answers[qid].photoUrls = [];
-
-  const previews = [];
-  let done = 0;
-  let allSuccess = true;
-
-  // 팝업 표시
-  showUploadPopup(qid, files.length);
-
-  for (let i = 0; i < files.length; i++) {
-    try {
-      const b64    = await compress(files[i], 800, 0.6);
-      previews[i]  = b64;
-      const base64 = b64.split(',')[1];
-      const empId  = 'AD' + document.getElementById('inp-empid').value.trim();
-      const store  = selectedOrg.store;
-
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'uploadPhoto', base64,
-          mimeType: 'image/jpeg',
-          empId, store,
-          org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
-          questionId: qid,
-          photoIndex: i + 1
-        })
-      });
-      const r = await res.json();
-      done++;
-
-      if (r.ok) {
-        answers[qid].photoUrls.push(r.fileUrl);
-        if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
-        updateUploadItem(qid, i, true);
-      } else {
-        allSuccess = false;
-        updateUploadItem(qid, i, false);
-      }
-
-    } catch(e) {
-      done++;
-      allSuccess = false;
-      updateUploadItem(qid, i, false);
-    }
-  }
-
-  hideUploadPopup(allSuccess);
-
-  st.innerHTML = allSuccess
-    ? `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
-      + previews.filter(Boolean).map(b =>
-          `<img src="${b}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
-        ).join('')
-    : `<span style="color:#E60012;font-size:13px">⚠️ 일부 사진 업로드 실패. 다시 시도해주세요.</span>`;
-}
 
 function compress(file, max, q) {
   return new Promise((res, rej) => {
