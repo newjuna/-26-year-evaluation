@@ -150,18 +150,14 @@
 </div>
 
 <!-- ══════════════════════
-     화면3: 서명
+     화면3: 서명 제거 — 평가 완료 후 바로 제출
 ══════════════════════ -->
 <div id="screen-sign" class="screen">
-  <div class="form-card" style="margin-bottom:90px">
-    <div class="sign-heading">✍️ 서명</div>
-    <div class="sign-sub">아래 박스에 손가락으로 서명해주세요</div>
-    <div class="canvas-wrap">
-      <canvas id="sign-canvas"></canvas>
-      <div class="canvas-hint" id="canvas-hint">여기에 서명하세요</div>
-    </div>
-    <button class="btn-text-sm" onclick="clearSign()">🔄 다시 서명</button>
-    <div id="sign-err" class="alert-msg" style="display:none;margin-top:10px">서명이 필요합니다.</div>
+  <div class="form-card" style="margin-bottom:90px;text-align:center;padding-top:40px">
+    <div style="font-size:48px;margin-bottom:16px">✅</div>
+    <div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:10px">7개 항목 평가 완료</div>
+    <div style="font-size:14px;color:var(--g500);margin-bottom:24px">아래 제출하기 버튼을 눌러 최종 제출하세요.</div>
+    <div id="sign-err" class="alert-msg" style="display:none;margin-top:10px">제출 중 오류가 발생했습니다.</div>
   </div>
   <div class="bottom-bar two-col">
     <button class="btn btn-gray" onclick="showScreen('screen-eval');jumpToLast()">← 이전</button>

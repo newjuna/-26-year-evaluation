@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzMlbdVERgo4ZCgh5mCajdnKuf8EPKCt_4RNEsWNVT0TjeF_ASABfF7-5IxDybe8Srn/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -393,8 +393,10 @@ function onPhoto(input) {
         body: JSON.stringify({
           action: 'uploadPhoto', base64,
           mimeType: 'image/jpeg',
-          fileName: qid + '_' + empId + '_' + i + '_' + Date.now() + '.jpg',
-          empId, store
+          empId, store,
+          org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
+          questionId: qid,
+          photoIndex: i + 1
         })
       });
     })
@@ -557,9 +559,6 @@ function showConfirmPopup() {
 // 제출
 // ============================================================
 async function submitEval() {
-  if (!hasSigned) { document.getElementById('sign-err').style.display='block'; return; }
-  document.getElementById('sign-err').style.display='none';
-
   // 최종 제출 확인 팝업
   const confirmed = await showConfirmPopup();
   if (!confirmed) return;
@@ -573,7 +572,6 @@ async function submitEval() {
     org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
     empName, empId, store: selectedOrg.store,
     answers,
-    signatureBase64: signCanvas.toDataURL('image/png'),
     userAgent: navigator.userAgent,
   };
 
