@@ -183,10 +183,18 @@
     <div id="res-grade" class="grade-badge">--</div>
     <div id="res-sub" class="done-sub"></div>
     <div id="score-guide"></div>
-    <div class="pdf-box" id="pdf-box">
-      <span class="spinner"></span> 결과서 PDF 생성 중...
+
+    <!-- PDF는 백그라운드에서 자동 생성됨 — 사용자에게 안내만 -->
+    <div class="pdf-notice">
+      📄 결과서 PDF는 자동으로 생성되어<br>구글 드라이브에 저장됩니다.
     </div>
-    <button class="btn btn-outline" style="margin-top:12px" onclick="location.reload()">처음으로</button>
+
+    <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="location.reload()">
+      ✅ 다른 매장 평가하기
+    </button>
+    <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="location.reload()">
+      처음으로 돌아가기
+    </button>
   </div>
 </div>
 

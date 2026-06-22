@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxL_EzMEB5d7qDi4_OVgzBd-rhUyx0E0aAv6Cuf1duOwgCUuxYfyINFFOuV_3UagtyA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -243,10 +243,15 @@ function buildCards() {
           <button type="button" class="action-btn ex-btn" onclick="openExPopup('assets/examples/example_${idx+1}.png')">
             🖼 증빙 예시
           </button>
-          <label class="action-btn photo-lbl" for="photo-${item.id}">
-            📷 사진 첨부 <span style="font-size:11px;font-weight:400">(선택·여러장)</span>
-            <input type="file" id="photo-${item.id}" accept="image/*"
+          <label class="action-btn photo-lbl" for="photo-album-${item.id}">
+            �️ 앨범/보관함
+            <input type="file" id="photo-album-${item.id}" accept="image/*"
                    multiple data-qid="${item.id}" onchange="onPhoto(this)">
+          </label>
+          <label class="action-btn photo-lbl" for="photo-camera-${item.id}">
+            📷 카메라 촬영
+            <input type="file" id="photo-camera-${item.id}" accept="image/*"
+                   capture="environment" data-qid="${item.id}" onchange="onPhoto(this)">
           </label>
         </div>
         <div id="photo-st-${item.id}"></div>
@@ -334,7 +339,20 @@ function updateProgress() {
   const fill  = document.getElementById('progress-fill');
   const label = document.getElementById('progress-label');
   if (fill)  fill.style.width = pct + '%';
-  if (label) label.textContent = `${done} / ${EVAL_ITEMS.length} 완료`;
+
+  // 누적 점수 계산
+  const SCORES = {q01:{상:10,중:0,하:0}, q02:{상:10,중:5,하:0}, q03:{상:15,중:0,하:0},
+                  q04:{상:10,중:0,하:0}, q05:{상:10,중:0,하:0}, q06:{상:15,중:8,하:0}, q07:{상:5,중:3,하:0}};
+  let raw = 0;
+  EVAL_ITEMS.forEach(item => {
+    const lv = answers[item.id]?.score;
+    if (lv) raw += SCORES[item.id][lv] || 0;
+  });
+  const score100 = done > 0 ? Math.round((raw / 75) * 1000) / 10 : 0;
+
+  if (label) label.textContent = done > 0
+    ? `${done}/${EVAL_ITEMS.length} 완료 · 현재 ${score100}점`
+    : `${done}/${EVAL_ITEMS.length} 완료`;
 }
 
 function updateNav() {
@@ -512,12 +530,39 @@ function clearSign() {
   document.getElementById('canvas-hint').style.display = '';
 }
 
+function showConfirmPopup() {
+  return new Promise(resolve => {
+    const pop = document.createElement('div');
+    pop.className = 'confirm-overlay';
+    pop.innerHTML = `
+      <div class="confirm-box">
+        <div class="confirm-icon">⚠️</div>
+        <div class="confirm-title">최종 제출하시겠습니까?</div>
+        <div class="confirm-desc">
+          제출 후에는 <b>내용 변경이 불가능</b>합니다.<br>
+          평가 내용을 다시 한번 확인해주세요.
+        </div>
+        <div class="confirm-btns">
+          <button class="btn btn-gray" id="confirm-cancel">다시 확인</button>
+          <button class="btn btn-primary" id="confirm-ok">제출하기</button>
+        </div>
+      </div>`;
+    document.body.appendChild(pop);
+    document.getElementById('confirm-cancel').onclick = () => { pop.remove(); resolve(false); };
+    document.getElementById('confirm-ok').onclick    = () => { pop.remove(); resolve(true);  };
+  });
+}
+
 // ============================================================
 // 제출
 // ============================================================
 async function submitEval() {
   if (!hasSigned) { document.getElementById('sign-err').style.display='block'; return; }
   document.getElementById('sign-err').style.display='none';
+
+  // 최종 제출 확인 팝업
+  const confirmed = await showConfirmPopup();
+  if (!confirmed) return;
 
   showOverlay(true); setStep(0,'active'); setBar(10);
 
@@ -551,28 +596,8 @@ async function submitEval() {
     showOverlay(false);
     showResult(json);
     showScreen('screen-done');
-    pollPdf(json.submissionId);
 
   } catch(e) { showOverlay(false); alert('제출 오류: ' + e.message); }
-}
-
-async function pollPdf(submissionId) {
-  const box = document.getElementById('pdf-box');
-  let n = 0;
-  const check = async () => {
-    if (++n > 20) return;
-    try {
-      const r = await fetch(`${GAS_URL}?mode=pdfStatus&submissionId=${encodeURIComponent(submissionId)}`);
-      const j = await r.json();
-      if (j.ok && j.data?.status === 'DONE' && j.data?.pdfUrl) {
-        box.innerHTML = `<a href="${j.data.pdfUrl}" target="_blank"
-          style="display:block;background:#E60012;color:#fff;padding:14px;border-radius:12px;font-weight:700;font-size:15px;text-align:center;text-decoration:none;">📄 결과서 PDF 열기</a>`;
-        return;
-      }
-    } catch(_) {}
-    setTimeout(check, 6000);
-  };
-  setTimeout(check, 8000);
 }
 
 function showResult(json) {
