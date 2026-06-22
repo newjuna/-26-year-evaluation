@@ -192,12 +192,13 @@ let searchTimer = null;
 function onPersonInfoChange() {
   const empNum = document.getElementById('inp-empid').value.trim();
   const name   = document.getElementById('inp-name').value.trim();
-  const empId  = empNum ? 'AD' + empNum : '';
 
   // 이미 선택된 매장 있으면 체크만
   if (selectedStore) { checkStartBtn(); return; }
 
   clearTimeout(searchTimer);
+
+  // 아무것도 안 입력했으면 초기화
   if (!empNum && !name) {
     document.getElementById('store-search-result').style.display = 'none';
     document.getElementById('store-searching').style.display = 'none';
@@ -210,59 +211,52 @@ function onPersonInfoChange() {
   document.getElementById('store-search-result').style.display = 'none';
 
   searchTimer = setTimeout(() => {
-    searchStore(empId, name);
-  }, 600);
-}
-
-// 조직도 flat에서 사번/이름으로 검색
-function searchStore(empId, name) {
-  document.getElementById('store-searching').style.display = 'none';
-  // GAS에서 받은 orgTree는 매장 목록만 있고 사번/이름은 없음
-  // → 사번/이름으로 매장 찾으려면 GAS에 별도 API 필요
-  // → 현재는 이름으로 매장명 포함 검색 (이름이 2글자 이상일 때)
-  let results = [];
-  if (name.length >= 2) {
-    results = orgFlatList.filter(r =>
-      r.store.includes(name) // 매장명에 이름 포함 (임시)
-    ).slice(0, 5);
-  }
-
-  // 사번으로도 GAS API 호출하여 매장 찾기
-  if (empId.length >= 5) {
-    fetchStoreByEmpId(empId, name);
-    return;
-  }
-
-  showStoreResults(results, name);
+    // 사번이 1자라도 있으면 GAS로 조회
+    if (empNum.length >= 1) {
+      const fullEmpId = 'AD' + empNum;
+      fetchStoreByEmpId(fullEmpId, name);
+    } else {
+      // 사번 없고 이름만 있는 경우 → 수동 선택 안내
+      document.getElementById('store-searching').style.display = 'none';
+      document.getElementById('manual-toggle-wrap').style.display = 'block';
+      checkStartBtn();
+    }
+  }, 500);
 }
 
 async function fetchStoreByEmpId(empId, name) {
   try {
     const res = await fetch(`${GAS_URL}?mode=findByEmpId&empId=${encodeURIComponent(empId)}`);
     const json = await res.json();
+    document.getElementById('store-searching').style.display = 'none';
+
     if (json.ok && json.data) {
-      // 이름 자동 완성
+      // 이름 자동 완성 (이름 칸이 비어있을 때만)
       const inpName = document.getElementById('inp-name');
       if (!inpName.value.trim() && json.data.empName) {
         inpName.value = json.data.empName;
       }
-      showStoreResults([json.data], name);
+      showStoreResults([json.data]);
     } else {
-      showStoreResults([], name);
+      // 못 찾음 → 수동 선택 안내
+      showStoreResults([]);
     }
   } catch (e) {
-    showStoreResults([], name);
+    document.getElementById('store-searching').style.display = 'none';
+    showStoreResults([]);
   }
 }
 
-function showStoreResults(results, searchKeyword) {
+function showStoreResults(results) {
   const resultWrap = document.getElementById('store-search-result');
   const cards = document.getElementById('store-cards');
   const manualToggle = document.getElementById('manual-toggle-wrap');
 
   if (results.length === 0) {
+    // 못 찾음 → 수동 선택 버튼만 표시
     resultWrap.style.display = 'none';
     manualToggle.style.display = 'block';
+    manualToggle.querySelector('.manual-toggle-btn').textContent = '⚠️ 매장을 찾지 못했습니다. 조직도 직접 선택 ▾';
     checkStartBtn();
     return;
   }
@@ -283,6 +277,7 @@ function showStoreResults(results, searchKeyword) {
 
   resultWrap.style.display = 'block';
   manualToggle.style.display = 'block';
+  manualToggle.querySelector('.manual-toggle-btn').textContent = '📋 조직도 직접 선택하기 ▾';
   checkStartBtn();
 }
 
