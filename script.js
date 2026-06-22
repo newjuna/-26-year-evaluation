@@ -203,7 +203,7 @@ function checkDuplicate(empId, store) {
 // ============================================================
 function startEval() {
   answers = {};
-  EVAL_ITEMS.forEach(item => { answers[item.id] = { score: null, photoUrl: '', memo: '' }; });
+  EVAL_ITEMS.forEach(item => { answers[item.id] = { score: null, photoUrl: '', photoUrls: [], photoPreviews: [], memo: '' }; });
   currentIdx = 0;
   buildCards();
   showScreen('screen-eval');
@@ -239,22 +239,18 @@ function buildCards() {
       <div class="card-body">
         <div class="criteria-box">${criteria}</div>
         ${guideHtml}
-        <div class="action-row">
+        <div class="action-row two-col">
           <button type="button" class="action-btn ex-btn" onclick="openExPopup('assets/examples/example_${idx+1}.png')">
             🖼 증빙 예시
           </button>
-          <label class="action-btn photo-lbl" for="photo-album-${item.id}">
-            �️ 앨범/보관함
-            <input type="file" id="photo-album-${item.id}" accept="image/*"
-                   multiple data-qid="${item.id}" onchange="onPhoto(this)">
-          </label>
-          <label class="action-btn photo-lbl" for="photo-camera-${item.id}">
-            📷 카메라 촬영
-            <input type="file" id="photo-camera-${item.id}" accept="image/*"
-                   capture="environment" data-qid="${item.id}" onchange="onPhoto(this)">
-          </label>
+          <button type="button" class="action-btn photo-add-btn" onclick="openPhotoSheet('${item.id}')">
+            📎 사진 첨부
+          </button>
         </div>
-        <div id="photo-st-${item.id}"></div>
+        <input type="file" id="photo-cam-${item.id}"  accept="image/*" capture="environment" style="display:none" data-qid="${item.id}" onchange="addPhoto(this)">
+        <input type="file" id="photo-alb-${item.id}"  accept="image/*" multiple style="display:none" data-qid="${item.id}" onchange="addPhoto(this)">
+        <input type="file" id="photo-file-${item.id}" accept="image/*" multiple style="display:none" data-qid="${item.id}" onchange="addPhoto(this)">
+        <div class="photo-preview-list" id="photo-list-${item.id}"></div>
         <div class="level-btns">
           <button class="lv-btn" data-qid="${item.id}" data-lv="상" onclick="pickLevel(this)">
             상<span class="lv-pt">${item.scores.high}점</span>
@@ -401,9 +397,111 @@ function updateNav() {
 }
 
 // ============================================================
-// 사진 업로드 팝업 표시
+// 사진 바텀시트
 // ============================================================
-function showUploadPopup(qid, total) {
+function openPhotoSheet(qid) {
+  const existing = document.getElementById('photo-sheet');
+  if (existing) existing.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'photo-sheet';
+  sheet.className = 'photo-sheet-overlay';
+  sheet.innerHTML = `
+    <div class="photo-sheet">
+      <div class="photo-sheet-title">사진 첨부 방식 선택</div>
+      <button class="photo-sheet-btn" onclick="document.getElementById('photo-cam-${qid}').click();closePhotoSheet()">📷 카메라 촬영</button>
+      <button class="photo-sheet-btn" onclick="document.getElementById('photo-alb-${qid}').click();closePhotoSheet()">🖼 앨범 / 보관함</button>
+      <button class="photo-sheet-btn" onclick="document.getElementById('photo-file-${qid}').click();closePhotoSheet()">📁 파일 선택</button>
+      <button class="photo-sheet-cancel" onclick="closePhotoSheet()">취소</button>
+    </div>`;
+  sheet.addEventListener('click', e => { if (e.target === sheet) closePhotoSheet(); });
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+function closePhotoSheet() {
+  const s = document.getElementById('photo-sheet');
+  if (s) { s.classList.remove('open'); setTimeout(() => s.remove(), 250); }
+}
+
+// ============================================================
+// 사진 추가 (백그라운드 업로드 — 다음 버튼 안 막음)
+// ============================================================
+function addPhoto(input) {
+  const qid   = input.dataset.qid;
+  const files  = Array.from(input.files);
+  if (!files.length) return;
+  input.value = ''; // 같은 파일 재선택 가능하게 초기화
+
+  if (!answers[qid].photoUrls)  answers[qid].photoUrls  = [];
+  if (!answers[qid].photoPreviews) answers[qid].photoPreviews = [];
+
+  files.forEach(file => {
+    compress(file, 800, 0.6).then(b64 => {
+      const idx = answers[qid].photoPreviews.length;
+      answers[qid].photoPreviews.push({ b64, url: null, uploading: true });
+      renderPhotoPreviews(qid);
+
+      const base64 = b64.split(',')[1];
+      const empId  = 'AD' + (document.getElementById('inp-empid')?.value.trim() || '');
+      const store  = selectedOrg.store;
+
+      fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'uploadPhoto', base64, mimeType: 'image/jpeg',
+          empId, store,
+          org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
+          questionId: qid,
+          photoIndex: idx + 1
+        })
+      })
+      .then(r => r.json())
+      .then(r => {
+        if (r.ok) {
+          answers[qid].photoPreviews[idx].url = r.fileUrl;
+          answers[qid].photoPreviews[idx].uploading = false;
+          // photoUrls 동기화
+          answers[qid].photoUrls = answers[qid].photoPreviews.filter(p => p.url).map(p => p.url);
+          if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
+        } else {
+          answers[qid].photoPreviews[idx].uploading = false;
+          answers[qid].photoPreviews[idx].error = true;
+        }
+        renderPhotoPreviews(qid);
+      })
+      .catch(() => {
+        answers[qid].photoPreviews[idx].uploading = false;
+        answers[qid].photoPreviews[idx].error = true;
+        renderPhotoPreviews(qid);
+      });
+    });
+  });
+}
+
+function removePhoto(qid, idx) {
+  answers[qid].photoPreviews.splice(idx, 1);
+  answers[qid].photoUrls = (answers[qid].photoPreviews || []).filter(p => p.url).map(p => p.url);
+  if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
+  else answers[qid].photoUrl = '';
+  renderPhotoPreviews(qid);
+}
+
+function renderPhotoPreviews(qid) {
+  const list = document.getElementById(`photo-list-${qid}`);
+  if (!list) return;
+  const previews = answers[qid].photoPreviews || [];
+  if (previews.length === 0) { list.innerHTML = ''; return; }
+  list.innerHTML = previews.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.b64}" alt="사진${i+1}">
+      ${p.uploading ? '<div class="photo-thumb-overlay"><span class="spinner"></span></div>' : ''}
+      ${p.error    ? '<div class="photo-thumb-overlay error">⚠️</div>' : ''}
+      <button class="photo-thumb-del" onclick="removePhoto('${qid}',${i})">✕</button>
+    </div>`).join('');
+}
+
+// 기존 onPhoto는 더 이상 사용 안 하지만 호환성을 위해 빈 함수로 유지
+function onPhoto(input) {}
   let popup = document.getElementById('upload-popup');
   if (!popup) {
     popup = document.createElement('div');
@@ -744,7 +842,7 @@ function showScreen(id) {
   const titles = {
     'screen-info': '반기 업무수행 평가',
     'screen-eval': '평가 항목',
-    'screen-sign': '서명',
+    'screen-sign': '제출 확인',
     'screen-done': '제출 완료',
   };
   const ht = document.getElementById('header-title');
