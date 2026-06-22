@@ -556,3 +556,253 @@ body {
   60%       { transform: translateX(-5px); }
   80%       { transform: translateX(5px); }
 }
+
+/* ── 영업본부 버튼 (2개 고정) ── */
+.hq-btn-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hq-btn {
+  padding: 16px 8px;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-700);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.hq-btn:active { transform: scale(0.97); }
+.hq-btn.selected {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+/* ── 계단식 등장 애니메이션 ── */
+.cascade-group {
+  animation: slideDown 0.25s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ════════════════════════════
+   가이드 팝업
+════════════════════════════ */
+.guide-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,27,54,0.92);
+  z-index: 1000;
+  display: flex; align-items: flex-end;
+  justify-content: center;
+}
+.guide-popup {
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 480px;
+  padding: 0 0 max(24px, env(safe-area-inset-bottom));
+  animation: slideUp 0.35s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.guide-header {
+  background: var(--navy);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 24px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.guide-header-title { color: #fff; font-size: 16px; font-weight: 700; }
+.guide-body { padding: 20px 24px 4px; }
+.guide-step {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.guide-step:last-child { border-bottom: none; }
+.guide-step-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--red); color: #fff;
+  font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.guide-step-text {
+  font-size: 14px; color: var(--gray-700); line-height: 1.6;
+}
+.guide-step-text strong { color: var(--navy); }
+.guide-step-text em { color: var(--red); font-style: normal; font-weight: 700; }
+.guide-footer { padding: 16px 24px 0; }
+.guide-countdown {
+  font-size: 12px; color: var(--gray-500);
+  text-align: center; margin-bottom: 10px;
+}
+
+/* ════════════════════════════
+   사번 입력 (AD 고정)
+════════════════════════════ */
+.form-row-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.empid-wrap {
+  display: flex; align-items: center;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+.empid-wrap:focus-within { border-color: var(--red); }
+.empid-prefix {
+  padding: 13px 10px 13px 14px;
+  font-size: 15px; font-weight: 800;
+  color: var(--red);
+  background: var(--red-soft);
+  border-right: 1.5px solid var(--gray-200);
+  flex-shrink: 0;
+}
+.empid-wrap input {
+  border: none; outline: none;
+  padding: 13px 10px;
+  font-size: 15px; font-family: inherit;
+  color: var(--gray-900);
+  width: 100%;
+  background: #fff;
+}
+
+/* ════════════════════════════
+   매장 검색 결과 카드
+════════════════════════════ */
+.searching-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: var(--gray-500);
+  padding: 10px 0;
+}
+.store-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.store-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border: 2px solid var(--gray-200);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.store-card:active, .store-card.selected {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+.store-card-name { font-size: 15px; font-weight: 700; color: var(--navy); }
+.store-card-org  { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.store-card-check { font-size: 20px; opacity: 0; transition: opacity 0.15s; }
+.store-card.selected .store-card-check { opacity: 1; }
+
+/* 수동 조직도 토글 버튼 */
+.manual-toggle-btn {
+  width: 100%; padding: 12px;
+  border: 1.5px dashed var(--gray-300);
+  border-radius: 12px;
+  background: var(--gray-50);
+  color: var(--gray-500);
+  font-size: 14px; font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin: 8px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.manual-org-box {
+  background: var(--gray-50);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 8px;
+  border: 1.5px solid var(--gray-200);
+}
+
+/* 선택된 매장 박스 */
+.selected-store-box {
+  background: #f0fdf4;
+  border: 2px solid #16a34a;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.selected-store-label {
+  font-size: 12px; font-weight: 700;
+  color: #16a34a; margin-bottom: 6px;
+}
+.selected-store-info {
+  font-size: 16px; font-weight: 800; color: var(--navy);
+}
+.selected-store-sub {
+  font-size: 12px; color: var(--gray-500); margin-top: 2px;
+}
+.change-store-btn {
+  background: none; border: none;
+  color: var(--gray-500); font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer; padding: 6px 0 0;
+  font-family: inherit;
+}
+
+/* ════════════════════════════
+   평가 항목 - 하 메모 + 예시
+════════════════════════════ */
+.memo-area {
+  margin-top: 10px;
+  display: none;
+  animation: slideDown 0.2s ease;
+}
+.memo-area.visible { display: block; }
+.memo-area textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--yellow);
+  border-radius: 12px;
+  background: #fffbeb;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--gray-900);
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+}
+.memo-area textarea::placeholder { color: var(--gray-300); }
+.memo-label {
+  font-size: 12px; font-weight: 700;
+  color: #92400e; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* 예시 이미지 */
+.example-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600;
+  color: var(--navy);
+  background: var(--gray-50);
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  margin-bottom: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+.example-img-wrap { margin-bottom: 12px; display: none; animation: slideDown 0.2s ease; }
+.example-img-wrap.visible { display: block; }
+.example-img-wrap img {
+  width: 100%; border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  display: block;
+}
