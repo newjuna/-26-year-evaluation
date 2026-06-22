@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwXwH9dtech_FxBHFlJdgWtGqfDaR817iSufYJshxI0tI4XFip5MuBgJBmAskx0lmCM/exec';
 
 // ============================================================
 // 평가 항목
