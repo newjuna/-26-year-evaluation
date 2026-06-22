@@ -24,8 +24,8 @@
       <div class="guide-step">
         <div class="guide-step-num">1</div>
         <div class="guide-step-text">
-          <strong>사번과 이름을 입력하세요</strong><br>
-          사번(AD+숫자)과 성명을 입력하면 소속 매장이 자동으로 검색됩니다.
+          <strong>사번을 입력하세요</strong><br>
+          사번(AD+숫자)을 입력하면 소속 매장이 자동으로 검색됩니다.
         </div>
       </div>
       <div class="guide-step">
@@ -80,28 +80,28 @@
 <div id="screen-info" class="screen active">
   <div class="info-banner">
     <div class="info-banner-title">2026년 상반기 평가</div>
-    <div class="info-banner-sub">사번과 이름을 입력하면 매장이 자동으로 검색됩니다</div>
+    <div class="info-banner-sub">사번(AD+숫자)을 입력하면 소속 매장이 자동으로 검색됩니다</div>
   </div>
 
   <div class="form-card">
 
-    <!-- ① 사번 + 이름 먼저 입력 -->
-    <div class="form-section-label">👤 본인 정보를 먼저 입력하세요</div>
+    <!-- ① 사번 입력 → 매장 자동 검색 -->
+    <div class="form-section-label">👤 사번을 입력하면 소속 매장이 자동으로 검색됩니다</div>
 
-    <div class="form-row-two">
-      <div class="form-group">
-        <label>사번</label>
-        <div class="empid-wrap">
-          <span class="empid-prefix">AD</span>
-          <input type="text" id="inp-empid" placeholder="숫자만 입력"
-                 autocomplete="off" inputmode="numeric" maxlength="10">
-        </div>
+    <div class="form-group">
+      <label>사번</label>
+      <div class="empid-wrap">
+        <span class="empid-prefix">AD</span>
+        <input type="text" id="inp-empid" placeholder="숫자만 입력"
+               autocomplete="off" inputmode="numeric" maxlength="10">
       </div>
-      <div class="form-group">
-        <label>성명</label>
-        <input type="text" id="inp-name" placeholder="이름 입력"
-               autocomplete="name" inputmode="text">
-      </div>
+    </div>
+
+    <div class="form-group" id="name-group" style="display:none">
+      <label>성명 확인</label>
+      <input type="text" id="inp-name" placeholder="이름이 자동으로 입력됩니다"
+             autocomplete="name" inputmode="text" readonly
+             style="background:var(--gray-50);color:var(--gray-700)">
     </div>
 
     <!-- ② 매장 자동 검색 결과 -->

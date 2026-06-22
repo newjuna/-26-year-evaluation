@@ -96,6 +96,10 @@ function showGuide() {
   const btn = document.getElementById('guide-close-btn');
   const countdown = document.getElementById('guide-countdown');
   let sec = 3;
+
+  // 즉시 첫 숫자 표시
+  countdown.textContent = `${sec}초 후 닫기 버튼이 활성화됩니다`;
+
   const timer = setInterval(() => {
     sec--;
     if (sec > 0) {
@@ -143,11 +147,10 @@ async function loadOrgTree() {
 // ============================================================
 function setupInfoForm() {
   const inpEmpId = document.getElementById('inp-empid');
-  const inpName  = document.getElementById('inp-name');
 
-  // 사번 입력 시 매장 자동 검색 / 이름은 checkStartBtn만
+  // 사번 입력 시 매장 자동 검색
   inpEmpId.addEventListener('input', onPersonInfoChange);
-  inpName.addEventListener('input', checkStartBtn);
+  inpEmpId.addEventListener('keyup', onPersonInfoChange);
 
   // 수동 조직도
   document.querySelectorAll('.hq-btn').forEach(btn => {
@@ -221,10 +224,11 @@ async function fetchStoreByEmpId(empId) {
     document.getElementById('store-searching').style.display = 'none';
 
     if (json.ok && json.data) {
-      // 이름 자동 완성 (이름 칸이 비어있을 때만)
+      // 이름 자동 완성 + 이름 필드 표시
       const inpName = document.getElementById('inp-name');
-      if (!inpName.value.trim() && json.data.empName) {
+      if (json.data.empName) {
         inpName.value = json.data.empName;
+        document.getElementById('name-group').style.display = 'block';
       }
       showStoreResults([json.data]);
     } else {
@@ -312,10 +316,9 @@ function showCascade(groupId, selectId, options, placeholder) {
 function hideCascade(...ids) { ids.forEach(id => { const g = document.getElementById(id); if (g) g.style.display = 'none'; }); }
 
 function checkStartBtn() {
-  const hasStore = !!selectedStore;
-  const hasName  = document.getElementById('inp-name').value.trim().length > 0;
   const hasEmpId = document.getElementById('inp-empid').value.trim().length > 0;
-  document.getElementById('btn-start').disabled = !(hasStore && hasName && hasEmpId);
+  const hasStore = !!selectedStore;
+  document.getElementById('btn-start').disabled = !(hasEmpId && hasStore);
 }
 
 let dupTimer = null;
