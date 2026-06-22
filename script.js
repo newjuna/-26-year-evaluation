@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwXwH9dtech_FxBHFlJdgWtGqfDaR817iSufYJshxI0tI4XFip5MuBgJBmAskx0lmCM/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -94,16 +94,53 @@ function closeGuide() {
 }
 
 // ============================================================
-// 조직도 로드
+// 조직도 로드 — JSONP 방식 (모바일 CORS 문제 없음)
 // ============================================================
 async function loadOrgTree() {
   try {
-    const res = await fetch(`${GAS_URL}?mode=org`);
-    const json = await res.json();
-    if (json.ok) orgTree = json.data;
+    const data = await gasGet({ mode: 'org' });
+    if (data.ok) orgTree = data.data;
   } catch(e) { console.error('조직도 로드 실패', e); }
   orgLoaded = true;
   tryActivateGuideBtn();
+}
+
+// GAS GET 요청 — JSONP 래퍼 (모바일 리다이렉트 문제 우회)
+function gasGet(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_cb_' + Date.now();
+    const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    const url = `${GAS_URL}?${qs}&callback=${cbName}`;
+
+    window[cbName] = (data) => {
+      delete window[cbName];
+      script.remove();
+      resolve(data);
+    };
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => {
+      delete window[cbName];
+      script.remove();
+      // JSONP 실패 시 fetch로 폴백
+      fetch(`${GAS_URL}?${qs}`)
+        .then(r => r.json())
+        .then(resolve)
+        .catch(reject);
+    };
+    setTimeout(() => {
+      if (window[cbName]) {
+        delete window[cbName];
+        script.remove();
+        fetch(`${GAS_URL}?${qs}`)
+          .then(r => r.json())
+          .then(resolve)
+          .catch(reject);
+      }
+    }, 8000); // 8초 타임아웃 후 fetch로 폴백
+    document.head.appendChild(script);
+  });
 }
 
 // ============================================================
@@ -254,11 +291,17 @@ function buildCards() {
       <div class="card-body">
         <div class="criteria-box">${criteria}</div>
         ${guideHtml}
-        <button type="button" class="ex-toggle-btn" data-qid="${item.id}" onclick="toggleEx('${item.id}')">🖼 증빙 예시 보기</button>
-        <div class="ex-img-wrap" id="ex-${item.id}">
-          <img src="assets/examples/example_${idx+1}.png" loading="lazy" alt="예시"
-               onerror="this.parentElement.style.display='none'">
+        <div class="action-row">
+          <button type="button" class="action-btn ex-btn" onclick="openExPopup('assets/examples/example_${idx+1}.png')">
+            🖼 증빙 예시
+          </button>
+          <label class="action-btn photo-lbl" for="photo-${item.id}">
+            📷 사진 첨부 <span style="font-size:11px;font-weight:400">(선택)</span>
+            <input type="file" id="photo-${item.id}" accept="image/*"
+                   capture="environment" data-qid="${item.id}" onchange="onPhoto(this)">
+          </label>
         </div>
+        <div id="photo-st-${item.id}"></div>
         <div class="level-btns">
           <button class="lv-btn" data-qid="${item.id}" data-lv="상" onclick="pickLevel(this)">
             상<span class="lv-pt">${item.scores.high}점</span>
@@ -276,14 +319,6 @@ function buildCards() {
           <textarea id="memo-${item.id}" rows="2" placeholder="간략히 적어주세요"
                     oninput="answers['${item.id}'].memo=this.value"></textarea>
         </div>
-        <div class="photo-area">
-          <label class="photo-lbl" for="photo-${item.id}">
-            📷 증빙 사진 첨부 <span style="font-size:12px;font-weight:400">(선택)</span>
-            <input type="file" id="photo-${item.id}" accept="image/*"
-                   capture="environment" data-qid="${item.id}" onchange="onPhoto(this)">
-          </label>
-          <div id="photo-st-${item.id}"></div>
-        </div>
       </div>`;
     wrap.appendChild(card);
   });
@@ -292,6 +327,24 @@ function buildCards() {
 function toggleEx(qid) {
   const w = document.getElementById(`ex-${qid}`);
   w.classList.toggle('open');
+}
+
+function openExPopup(src) {
+  // 이미 팝업 있으면 제거
+  const existing = document.getElementById('ex-popup');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'ex-popup';
+  popup.className = 'ex-popup';
+  popup.innerHTML = `
+    <div class="ex-popup-inner">
+      <button class="ex-popup-close" onclick="document.getElementById('ex-popup').remove()">✕</button>
+      <img src="${src}" alt="증빙 예시" onerror="this.src=''">
+    </div>`;
+  // 배경 탭으로도 닫기
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
 }
 
 function pickLevel(btn) {
@@ -391,30 +444,77 @@ function compress(file, max, q) {
 }
 
 // ============================================================
-// 서명 캔버스
+// 서명 캔버스 — 화면 진입 시점에 초기화
 // ============================================================
 function initSignCanvas() {
   signCanvas = document.getElementById('sign-canvas');
   signCtx = signCanvas.getContext('2d');
-  function resize() {
-    const rect = signCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-    signCanvas.width = rect.width * dpr; signCanvas.height = rect.height * dpr;
-    signCtx.scale(dpr, dpr);
-    signCtx.strokeStyle = '#0D1B36'; signCtx.lineWidth = 2.5;
-    signCtx.lineCap = 'round'; signCtx.lineJoin = 'round';
+
+  function setupCtx() {
+    signCtx.strokeStyle = '#0D1B36';
+    signCtx.lineWidth = 2.5;
+    signCtx.lineCap = 'round';
+    signCtx.lineJoin = 'round';
   }
-  resize(); window.addEventListener('resize', resize);
-  const pos = e => { const r=signCanvas.getBoundingClientRect(), s=e.touches?e.touches[0]:e; return {x:s.clientX-r.left,y:s.clientY-r.top}; };
-  const down = e => { isDrawing=true; hasSigned=true; document.getElementById('canvas-hint').style.display='none'; signCtx.beginPath(); const p=pos(e); signCtx.moveTo(p.x,p.y); };
-  const move = e => { if(!isDrawing)return; e.preventDefault(); const p=pos(e); signCtx.lineTo(p.x,p.y); signCtx.stroke(); };
-  const up   = () => isDrawing=false;
-  signCanvas.addEventListener('mousedown',down);
-  signCanvas.addEventListener('mousemove',move);
-  signCanvas.addEventListener('mouseup',up);
-  signCanvas.addEventListener('mouseleave',up);
-  signCanvas.addEventListener('touchstart',down,{passive:false});
-  signCanvas.addEventListener('touchmove',move,{passive:false});
-  signCanvas.addEventListener('touchend',up);
+
+  // 캔버스 크기 세팅 — 화면에 보일 때만 유효한 rect를 얻을 수 있음
+  function resize() {
+    // display:none 상태면 크기가 0 → 건너뜀
+    const rect = signCanvas.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    signCanvas.width  = rect.width  * dpr;
+    signCanvas.height = rect.height * dpr;
+    signCtx.scale(dpr, dpr);
+    setupCtx();
+  }
+
+  // screen-sign이 active될 때마다 리사이즈
+  const observer = new MutationObserver(() => {
+    const screen = document.getElementById('screen-sign');
+    if (screen && screen.classList.contains('active')) {
+      // 렌더링 완료 후 실행
+      requestAnimationFrame(() => resize());
+    }
+  });
+  const screen = document.getElementById('screen-sign');
+  if (screen) observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
+
+  window.addEventListener('resize', resize);
+
+  const getPos = e => {
+    const r = signCanvas.getBoundingClientRect();
+    const s = e.touches ? e.touches[0] : e;
+    return { x: s.clientX - r.left, y: s.clientY - r.top };
+  };
+
+  const down = e => {
+    // 캔버스 크기가 0이면 먼저 초기화
+    if (signCanvas.width === 0) resize();
+    e.preventDefault();
+    isDrawing = true; hasSigned = true;
+    const hint = document.getElementById('canvas-hint');
+    if (hint) hint.style.display = 'none';
+    signCtx.beginPath();
+    const p = getPos(e);
+    signCtx.moveTo(p.x, p.y);
+  };
+  const move = e => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    signCtx.lineTo(p.x, p.y);
+    signCtx.stroke();
+  };
+  const up = () => { isDrawing = false; };
+
+  signCanvas.addEventListener('mousedown',  down, { passive: false });
+  signCanvas.addEventListener('mousemove',  move, { passive: false });
+  signCanvas.addEventListener('mouseup',    up);
+  signCanvas.addEventListener('mouseleave', up);
+  signCanvas.addEventListener('touchstart', down, { passive: false });
+  signCanvas.addEventListener('touchmove',  move, { passive: false });
+  signCanvas.addEventListener('touchend',   up);
 }
 
 function clearSign() {
