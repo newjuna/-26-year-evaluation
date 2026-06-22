@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_oiaPaaIBa7AYq8oN_G1sf0vcTrkQTY1W32U7MftAKZLsqD4wYWYe-VUzpUE0Yn1D/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -48,6 +48,7 @@ let selectedOrg = { hq:'', dept:'', team:'', store:'' };
 let signCanvas, signCtx, isDrawing = false, hasSigned = false;
 let orgLoaded = false;
 let guideStepsAllShown = false;
+let uploadingCount = 0; // 현재 업로드 중인 사진 수
 
 // ============================================================
 // 초기화
@@ -363,7 +364,7 @@ function updateNav() {
 }
 
 // ============================================================
-// 사진 즉시 업로드 (순차 처리 — 폴더 중복 생성 방지)
+// 사진 즉시 업로드 (순차 처리 + 업로드 중 제출 차단)
 // ============================================================
 async function onPhoto(input) {
   const qid   = input.dataset.qid;
@@ -377,9 +378,11 @@ async function onPhoto(input) {
   const previews = [];
   let done = 0;
 
+  // 업로드 시작 → 다음/제출 버튼 잠금
+  uploadingCount++;
+  updateUploadLock();
   st.innerHTML = `<span class="spinner"></span> 0 / ${files.length}장 업로드 중...`;
 
-  // 순차 처리 (for...of) — 동시 업로드 시 Drive 폴더 중복 생성 방지
   for (let i = 0; i < files.length; i++) {
     try {
       const b64    = await compress(files[i], 800, 0.6);
@@ -407,7 +410,6 @@ async function onPhoto(input) {
         if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
       }
 
-      // 진행 상황 업데이트
       st.innerHTML = done < files.length
         ? `<span class="spinner"></span> ${done} / ${files.length}장 업로드 중...`
         : `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
@@ -420,6 +422,19 @@ async function onPhoto(input) {
       st.innerHTML = `<span style="color:#E60012;font-size:13px">⚠️ ${i+1}번 사진 업로드 실패. 다시 시도해주세요.</span>`;
     }
   }
+
+  // 업로드 완료 → 버튼 잠금 해제
+  uploadingCount = Math.max(0, uploadingCount - 1);
+  updateUploadLock();
+}
+
+// 업로드 중 다음/제출 버튼 비활성화
+function updateUploadLock() {
+  const locked = uploadingCount > 0;
+  const nextBtn   = document.getElementById('btn-next');
+  const submitBtn = document.getElementById('btn-submit');
+  if (nextBtn)   { nextBtn.disabled   = locked; nextBtn.title   = locked ? '사진 업로드 완료 후 이동 가능' : ''; }
+  if (submitBtn) { submitBtn.disabled = locked; submitBtn.title = locked ? '사진 업로드 완료 후 제출 가능' : ''; }
 }
 
 function compress(file, max, q) {
