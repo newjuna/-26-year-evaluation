@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-KqhGY33vV4_tdX_a82tNmaErJjaXbfgq27Lb3vLES3QrpSYV_KNn42kNkAdExkIZ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -95,7 +95,7 @@ function showGuide() {
   overlay.style.display = 'flex';
   const btn = document.getElementById('guide-close-btn');
   const countdown = document.getElementById('guide-countdown');
-  let sec = 5;
+  let sec = 3;
   const timer = setInterval(() => {
     sec--;
     if (sec > 0) {
@@ -145,9 +145,9 @@ function setupInfoForm() {
   const inpEmpId = document.getElementById('inp-empid');
   const inpName  = document.getElementById('inp-name');
 
-  // 사번/이름 입력 시 매장 자동 검색
+  // 사번 입력 시 매장 자동 검색 / 이름은 checkStartBtn만
   inpEmpId.addEventListener('input', onPersonInfoChange);
-  inpName.addEventListener('input', onPersonInfoChange);
+  inpName.addEventListener('input', checkStartBtn);
 
   // 수동 조직도
   document.querySelectorAll('.hq-btn').forEach(btn => {
@@ -191,15 +191,13 @@ function setupInfoForm() {
 let searchTimer = null;
 function onPersonInfoChange() {
   const empNum = document.getElementById('inp-empid').value.trim();
-  const name   = document.getElementById('inp-name').value.trim();
 
   // 이미 선택된 매장 있으면 체크만
   if (selectedStore) { checkStartBtn(); return; }
 
   clearTimeout(searchTimer);
 
-  // 아무것도 안 입력했으면 초기화
-  if (!empNum && !name) {
+  if (!empNum) {
     document.getElementById('store-search-result').style.display = 'none';
     document.getElementById('store-searching').style.display = 'none';
     document.getElementById('manual-toggle-wrap').style.display = 'none';
@@ -210,21 +208,13 @@ function onPersonInfoChange() {
   document.getElementById('store-searching').style.display = 'flex';
   document.getElementById('store-search-result').style.display = 'none';
 
+  // 사번 입력 후 0.8초 뒤 조회 (타이핑 끝날 때까지 대기)
   searchTimer = setTimeout(() => {
-    // 사번이 1자라도 있으면 GAS로 조회
-    if (empNum.length >= 1) {
-      const fullEmpId = 'AD' + empNum;
-      fetchStoreByEmpId(fullEmpId, name);
-    } else {
-      // 사번 없고 이름만 있는 경우 → 수동 선택 안내
-      document.getElementById('store-searching').style.display = 'none';
-      document.getElementById('manual-toggle-wrap').style.display = 'block';
-      checkStartBtn();
-    }
-  }, 500);
+    fetchStoreByEmpId('AD' + empNum);
+  }, 800);
 }
 
-async function fetchStoreByEmpId(empId, name) {
+async function fetchStoreByEmpId(empId) {
   try {
     const res = await fetch(`${GAS_URL}?mode=findByEmpId&empId=${encodeURIComponent(empId)}`);
     const json = await res.json();
@@ -238,7 +228,6 @@ async function fetchStoreByEmpId(empId, name) {
       }
       showStoreResults([json.data]);
     } else {
-      // 못 찾음 → 수동 선택 안내
       showStoreResults([]);
     }
   } catch (e) {
