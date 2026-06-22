@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxbpX55jtvmrZDYETVjLDH_LzyRQsCmT42xmpVNu63lYoIcN4PW8a9LJVvQcPAjBEZ7/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -63,21 +63,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function startGuideAndLoad() {
   loadOrgTree();  // GitHub assets/org.json 로드 (거의 즉시)
 
-  // 스텝 전부 즉시 표시
+  // 스텝 4개를 0.6초 간격으로 순차 등장 (총 2.4초)
   [0,1,2,3].forEach(i => {
-    const el = document.getElementById(`gs-${i}`);
-    if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
+    setTimeout(() => {
+      const el = document.getElementById(`gs-${i}`);
+      if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
+      if (i === 3) { guideStepsAllShown = true; tryActivateGuideBtn(); }
+    }, 600 * (i + 1));
   });
-  guideStepsAllShown = true;
-  // orgLoaded도 거의 동시에 완료되므로 tryActivateGuideBtn은 loadOrgTree 완료 후 호출됨
 }
 
 function tryActivateGuideBtn() {
   if (!orgLoaded || !guideStepsAllShown) return;
-  const row = document.getElementById('guide-loading-row');
-  if (row) row.innerHTML = '<span style="color:#16a34a;font-size:18px">✅</span>&nbsp;<span style="color:#16a34a;font-weight:600">준비 완료!</span>';
-  const st = document.getElementById('guide-status');
-  if (st) st.textContent = '아래 버튼을 눌러 시작하세요.';
   const btn = document.getElementById('guide-btn');
   if (btn) btn.disabled = false;
 }

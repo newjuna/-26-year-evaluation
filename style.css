@@ -266,23 +266,52 @@ body {
 .submit-bar { height: 100%; background: var(--red); border-radius: 100px; transition: width .5s ease; width: 0; }
 
 /* ── 가이드 팝업 ── */
-.guide-overlay { position: fixed; inset: 0; background: rgba(13,27,54,.92); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
-.guide-popup   { background: #fff; border-radius: 24px 24px 0 0; width: 100%; max-width: 480px; padding-bottom: max(24px, env(safe-area-inset-bottom)); animation: slideUp .35s ease; }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.guide-header  { background: var(--navy); border-radius: 24px 24px 0 0; padding: 18px 24px 14px; display: flex; align-items: center; gap: 12px; }
-.guide-loading-row { display: flex; align-items: center; gap: 10px; padding: 14px 24px 0; font-size: 13px; color: var(--g500); }
+.guide-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,27,54,0.75);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: overlayIn .3s ease;
+}
+@keyframes overlayIn { from { opacity:0; } to { opacity:1; } }
+
+.guide-popup {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%; max-width: 420px;
+  overflow: hidden;
+  animation: popupIn .35s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+@keyframes popupIn {
+  from { opacity:0; transform: scale(0.85); }
+  to   { opacity:1; transform: scale(1); }
+}
+
+.guide-header {
+  background: var(--navy);
+  padding: 18px 24px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.guide-loading-row { display:none; } /* 제거 */
 .guide-body    { padding: 8px 24px 4px; }
 .guide-step    { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--g100); }
 .guide-step:last-child { border-bottom: none; }
 .guide-num     { width: 26px; height: 26px; border-radius: 50%; background: var(--red); color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 .guide-text    { font-size: 14px; color: var(--g700); line-height: 1.6; }
 .guide-text b  { color: var(--navy); }
-.guide-footer  { padding: 14px 24px 0; }
-.guide-cd      { font-size: 12px; color: var(--g500); text-align: center; margin-bottom: 10px; }
+.guide-footer  { padding: 14px 24px 20px; }
+.guide-cd      { font-size: 12px; color: var(--g500); text-align: center; margin-bottom: 10px; min-height: 18px; }
 
 /* 가이드 스텝 순차 등장 */
-.guide-step-hidden  { opacity: 0; transform: translateY(10px); }
-.guide-step-visible { opacity: 1; transform: translateY(0); transition: opacity .45s ease, transform .45s ease; }
+.guide-step-hidden  { opacity: 0; transform: translateX(-12px); }
+.guide-step-visible {
+  opacity: 1; transform: translateX(0);
+  transition: opacity .35s ease, transform .35s ease;
+}
 
 /* ── 흔들기 ── */
 @keyframes shake {

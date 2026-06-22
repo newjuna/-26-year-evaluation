@@ -20,34 +20,28 @@
       <span style="color:#fff;font-size:16px;font-weight:700;margin-left:12px">이용 안내</span>
     </div>
 
-    <!-- 로딩 상태 표시 -->
-    <div class="guide-loading-row" id="guide-loading-row">
-      <span class="spinner"></span>
-      <span id="guide-loading-text">잠시만 기다려주세요...</span>
-    </div>
-
-    <!-- 스텝: 처음엔 모두 숨김, JS가 순서대로 등장시킴 -->
+    <!-- 스텝: JS가 순서대로 등장시킴 -->
     <div class="guide-body" id="guide-body">
       <div class="guide-step guide-step-hidden" id="gs-0">
         <div class="guide-num">1</div>
-        <div class="guide-text"><b>영업본부 → 부서 → 팀 → 매장</b> 순서로 선택하세요.</div>
+        <div class="guide-text"><b>영업본부 → 부서 → 팀</b> 순서로 선택하세요.</div>
       </div>
       <div class="guide-step guide-step-hidden" id="gs-1">
         <div class="guide-num">2</div>
-        <div class="guide-text"><b>사번</b>(AD 뒤 숫자)과 <b>성명</b>을 입력하세요.</div>
+        <div class="guide-text"><b>매장명</b>을 직접 입력하세요.</div>
       </div>
       <div class="guide-step guide-step-hidden" id="gs-2">
         <div class="guide-num">3</div>
-        <div class="guide-text">7개 항목을 하나씩 평가하고, 필요 시 증빙 사진을 첨부하세요.</div>
+        <div class="guide-text"><b>사번</b>(AD 뒤 숫자)과 <b>성명</b>을 입력하세요.</div>
       </div>
       <div class="guide-step guide-step-hidden" id="gs-3">
         <div class="guide-num">4</div>
-        <div class="guide-text">마지막에 <b>서명 후 제출</b>하면 결과서 PDF가 자동 생성됩니다.</div>
+        <div class="guide-text">7개 항목 평가 후 <b>서명하고 제출</b>하면 완료됩니다.</div>
       </div>
     </div>
 
     <div class="guide-footer">
-      <div id="guide-status" class="guide-cd">잠시만 기다려주세요...</div>
+      <div id="guide-status" class="guide-cd"></div>
       <button class="btn btn-primary" id="guide-btn" disabled onclick="closeGuide()">시작하기</button>
     </div>
   </div>
