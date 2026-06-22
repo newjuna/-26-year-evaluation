@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxsZ1XNLH6qwa63gkg3DoLXbFZKBnYjgmJaDlvTuEZhMigI8nQX99Xu49Gap2mHYg7N/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -58,23 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// 가이드 팝업 + 조직도 로딩 동시 진행
+// 가이드 팝업 — 조직도 JSON 로드와 동시 진행
 // ============================================================
 function startGuideAndLoad() {
-  loadOrgTree();  // 백그라운드 로딩
+  loadOrgTree();  // GitHub assets/org.json 로드 (GAS 호출 없음)
 
-  // 스텝 4개를 2초 간격으로 순차 등장
   [0,1,2,3].forEach(i => {
     setTimeout(() => {
       const el = document.getElementById(`gs-${i}`);
-      if (el) {
-        el.classList.remove('guide-step-hidden');
-        el.classList.add('guide-step-visible');
-      }
-      if (i === 3) {
-        guideStepsAllShown = true;
-        tryActivateGuideBtn();
-      }
+      if (el) { el.classList.remove('guide-step-hidden'); el.classList.add('guide-step-visible'); }
+      if (i === 3) { guideStepsAllShown = true; tryActivateGuideBtn(); }
     }, 2000 * (i + 1));
   });
 }
@@ -82,9 +75,9 @@ function startGuideAndLoad() {
 function tryActivateGuideBtn() {
   if (!orgLoaded || !guideStepsAllShown) return;
   const row = document.getElementById('guide-loading-row');
-  if (row) row.innerHTML = '<span style="color:#16a34a;font-size:18px">✅</span>&nbsp;<span style="color:#16a34a;font-weight:600">데이터 준비 완료!</span>';
+  if (row) row.innerHTML = '<span style="color:#16a34a;font-size:18px">✅</span>&nbsp;<span style="color:#16a34a;font-weight:600">준비 완료!</span>';
   const st = document.getElementById('guide-status');
-  if (st) st.textContent = '준비됐습니다. 아래 버튼을 눌러 시작하세요.';
+  if (st) st.textContent = '아래 버튼을 눌러 시작하세요.';
   const btn = document.getElementById('guide-btn');
   if (btn) btn.disabled = false;
 }
@@ -94,57 +87,24 @@ function closeGuide() {
 }
 
 // ============================================================
-// 조직도 로드 — JSONP 방식 (모바일 CORS 문제 없음)
+// 조직도 로드 — GitHub assets/org.json (GAS 호출 없음 → 안정적)
+// 구조: { 부문: { 부서: [팀1, 팀2, ...] } }
 // ============================================================
 async function loadOrgTree() {
   try {
-    const data = await gasGet({ mode: 'org' });
-    if (data.ok) orgTree = data.data;
-  } catch(e) { console.error('조직도 로드 실패', e); }
+    const res = await fetch('assets/org.json');
+    orgTree = await res.json();
+  } catch(e) {
+    console.error('조직도 로드 실패', e);
+    orgTree = {};
+  }
   orgLoaded = true;
   tryActivateGuideBtn();
 }
 
-// GAS GET 요청 — JSONP 래퍼 (모바일 리다이렉트 문제 우회)
-function gasGet(params) {
-  return new Promise((resolve, reject) => {
-    const cbName = '_cb_' + Date.now();
-    const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-    const url = `${GAS_URL}?${qs}&callback=${cbName}`;
-
-    window[cbName] = (data) => {
-      delete window[cbName];
-      script.remove();
-      resolve(data);
-    };
-
-    const script = document.createElement('script');
-    script.src = url;
-    script.onerror = () => {
-      delete window[cbName];
-      script.remove();
-      // JSONP 실패 시 fetch로 폴백
-      fetch(`${GAS_URL}?${qs}`)
-        .then(r => r.json())
-        .then(resolve)
-        .catch(reject);
-    };
-    setTimeout(() => {
-      if (window[cbName]) {
-        delete window[cbName];
-        script.remove();
-        fetch(`${GAS_URL}?${qs}`)
-          .then(r => r.json())
-          .then(resolve)
-          .catch(reject);
-      }
-    }, 8000); // 8초 타임아웃 후 fetch로 폴백
-    document.head.appendChild(script);
-  });
-}
-
 // ============================================================
-// 계단식 조직도 선택 (onclick 방식)
+// 계단식 조직도 선택
+// 영업본부 → 부서 → 팀 → 매장명 직접 입력
 // ============================================================
 function selectHq(btn) {
   document.querySelectorAll('.hq-btn').forEach(b => b.classList.remove('sel'));
@@ -152,7 +112,6 @@ function selectHq(btn) {
   selectedOrg.hq = btn.dataset.val;
   selectedOrg.dept = ''; selectedOrg.team = ''; selectedOrg.store = '';
 
-  // 부서 목록 채우기
   const depts = Object.keys(orgTree[selectedOrg.hq] || {});
   fillSelect('sel-dept', depts, '부서를 선택하세요');
   show('fg-dept');
@@ -165,7 +124,8 @@ function selectDept() {
   if (!selectedOrg.dept) return;
   selectedOrg.team = ''; selectedOrg.store = '';
 
-  const teams = Object.keys(orgTree[selectedOrg.hq]?.[selectedOrg.dept] || {});
+  // org.json 구조: { 부서: [팀 배열] }
+  const teams = orgTree[selectedOrg.hq]?.[selectedOrg.dept] || [];
   fillSelect('sel-team', teams, '팀을 선택하세요');
   show('fg-team');
   hide('fg-store'); hide('fg-empid'); hide('fg-name'); hide('divider-person');
@@ -177,24 +137,22 @@ function selectTeam() {
   if (!selectedOrg.team) return;
   selectedOrg.store = '';
 
-  const stores = orgTree[selectedOrg.hq]?.[selectedOrg.dept]?.[selectedOrg.team] || [];
-  fillSelect('sel-store', stores, '매장을 선택하세요');
+  // 팀 선택 완료 → 매장명 직접 입력창 표시
   show('fg-store');
   hide('fg-empid'); hide('fg-name'); hide('divider-person');
+  document.getElementById('inp-store').value = '';
+  document.getElementById('inp-store').focus();
   checkReady();
 }
 
-function selectStoreFn() {
-  selectedOrg.store = document.getElementById('sel-store').value;
-  if (!selectedOrg.store) return;
-
-  // 매장 선택 완료 → 사번/이름 입력 노출
-  show('divider-person');
-  show('fg-empid');
-  show('fg-name');
+function onStoreInput() {
+  selectedOrg.store = document.getElementById('inp-store').value.trim();
+  if (selectedOrg.store) {
+    show('divider-person');
+    show('fg-empid');
+    show('fg-name');
+  }
   checkReady();
-
-  // 중복 확인 (비동기, 사번 입력 전이라 아직 안 함)
 }
 
 function fillSelect(id, opts, placeholder) {
@@ -202,31 +160,24 @@ function fillSelect(id, opts, placeholder) {
   sel.innerHTML = `<option value="">${placeholder}</option>`;
   opts.forEach(v => {
     const o = document.createElement('option');
-    o.value = v; o.textContent = v;
-    sel.appendChild(o);
+    o.value = v; o.textContent = v; sel.appendChild(o);
   });
 }
 
-function show(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = '';  // display:none 해제
-}
-function hide(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-}
+function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
 
 // ============================================================
 // 시작 버튼 활성화 조건
 // ============================================================
 function checkReady() {
-  const ok = selectedOrg.store &&
+  const ok = selectedOrg.hq && selectedOrg.dept && selectedOrg.team &&
+             selectedOrg.store &&
              document.getElementById('inp-empid')?.value.trim() &&
              document.getElementById('inp-name')?.value.trim();
   const btn = document.getElementById('btn-start');
   if (btn) btn.disabled = !ok;
 
-  // 중복 확인 (사번+매장 다 있을 때)
   const empNum = document.getElementById('inp-empid')?.value.trim();
   if (ok && empNum) checkDuplicate('AD' + empNum, selectedOrg.store);
 }
@@ -296,9 +247,9 @@ function buildCards() {
             🖼 증빙 예시
           </button>
           <label class="action-btn photo-lbl" for="photo-${item.id}">
-            📷 사진 첨부 <span style="font-size:11px;font-weight:400">(선택)</span>
+            📷 사진 첨부 <span style="font-size:11px;font-weight:400">(선택·여러장)</span>
             <input type="file" id="photo-${item.id}" accept="image/*"
-                   capture="environment" data-qid="${item.id}" onchange="onPhoto(this)">
+                   multiple data-qid="${item.id}" onchange="onPhoto(this)">
           </label>
         </div>
         <div id="photo-st-${item.id}"></div>
@@ -397,31 +348,61 @@ function updateNav() {
 }
 
 // ============================================================
-// 사진 즉시 업로드
+// 사진 즉시 업로드 (여러 장 지원 + 강한 압축 + 메모리 즉시 해제)
 // ============================================================
 function onPhoto(input) {
-  const qid = input.dataset.qid, file = input.files[0];
-  if (!file) return;
+  const qid = input.dataset.qid;
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
   const st = document.getElementById(`photo-st-${qid}`);
-  st.innerHTML = '<span class="spinner"></span> 업로드 중...';
-  compress(file, 1200, 0.75).then(b64 => {
-    const base64 = b64.split(',')[1];
-    const empId  = 'AD' + document.getElementById('inp-empid').value.trim();
-    const store  = selectedOrg.store;
-    fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action:'uploadPhoto', base64, mimeType:'image/jpeg',
-        fileName:`${qid}_${empId}_${Date.now()}.jpg`, empId, store })
+  st.innerHTML = `<span class="spinner"></span> 0 / ${files.length}장 업로드 중...`;
+
+  // 기존 URL 배열 초기화
+  if (!answers[qid].photoUrls) answers[qid].photoUrls = [];
+  answers[qid].photoUrls = [];
+
+  let done = 0;
+  const previews = [];
+
+  files.forEach((file, i) => {
+    // 강한 압축: 800px, quality 0.6 (메모리 최소화)
+    compress(file, 800, 0.6).then(b64 => {
+      previews[i] = b64;
+      const base64 = b64.split(',')[1];
+      const empId = 'AD' + document.getElementById('inp-empid').value.trim();
+      const store = selectedOrg.store;
+
+      return fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'uploadPhoto', base64,
+          mimeType: 'image/jpeg',
+          fileName: qid + '_' + empId + '_' + i + '_' + Date.now() + '.jpg',
+          empId, store
+        })
+      });
     })
     .then(r => r.json())
     .then(r => {
-      if (r.ok) {
-        answers[qid].photoUrl = r.fileUrl;
-        st.innerHTML = `<div style="color:#16a34a;font-size:13px">✅ 업로드 완료</div>
-          <img src="${b64}" style="width:100%;border-radius:10px;margin-top:6px;max-height:160px;object-fit:cover">`;
-      } else { st.innerHTML = '<span style="color:#E60012;font-size:13px">⚠️ 업로드 실패. 다시 시도해주세요.</span>'; }
+      done++;
+      if (r.ok) answers[qid].photoUrls.push(r.fileUrl);
+      // 첫 번째 사진 URL을 photoUrl에도 저장 (하위 호환)
+      if (answers[qid].photoUrls.length > 0) {
+        answers[qid].photoUrl = answers[qid].photoUrls[0];
+      }
+
+      st.innerHTML = done < files.length
+        ? `<span class="spinner"></span> ${done} / ${files.length}장 업로드 중...`
+        : `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
+          + previews.filter(Boolean).map(b64 =>
+              `<img src="${b64}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
+            ).join('');
     })
-    .catch(() => { st.innerHTML = '<span style="color:#E60012;font-size:13px">⚠️ 업로드 실패.</span>'; });
+    .catch(() => {
+      done++;
+      st.innerHTML = `<span style="color:#E60012;font-size:13px">⚠️ ${i+1}번 사진 업로드 실패. 다시 시도해주세요.</span>`;
+    });
   });
 }
 
@@ -432,14 +413,24 @@ function compress(file, max, q) {
       const img = new Image();
       img.onload = () => {
         let w = img.width, h = img.height;
-        if (w > max || h > max) { if(w>h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;} }
-        const c = document.createElement('canvas'); c.width=w; c.height=h;
-        c.getContext('2d').drawImage(img,0,0,w,h);
-        res(c.toDataURL('image/jpeg', q));
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round(h * max / w); w = max; }
+          else       { w = Math.round(w * max / h); h = max; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const result = c.toDataURL('image/jpeg', q);
+        // 메모리 해제
+        c.width = 0; c.height = 0;
+        img.src = '';
+        res(result);
       };
-      img.onerror = rej; img.src = ev.target.result;
+      img.onerror = rej;
+      img.src = ev.target.result;
     };
-    reader.onerror = rej; reader.readAsDataURL(file);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -594,6 +585,34 @@ function showResult(json) {
   el.textContent = grade;
   el.className = 'grade-badge grade-' + grade;
   document.getElementById('res-sub').textContent = `원점수 ${json.rawScore} / 75점`;
+
+  // 점수 계산 가이드
+  const guideEl = document.getElementById('score-guide');
+  if (guideEl) {
+    guideEl.innerHTML = `
+      <details class="score-guide-box">
+        <summary>📊 점수가 왜 이렇게 나왔나요?</summary>
+        <div class="score-guide-body">
+          <p>총 75점 만점을 100점으로 환산한 점수예요.</p>
+          <table class="score-table">
+            <thead><tr><th>항목</th><th>상</th><th>중</th><th>하</th></tr></thead>
+            <tbody>
+              <tr><td>기계·기구 설비 점검</td><td>10점</td><td>—</td><td>0점</td></tr>
+              <tr><td>보호구·교육 지도</td><td>10점</td><td>5점</td><td>0점</td></tr>
+              <tr><td>산업재해 보고</td><td>15점</td><td>—</td><td>0점</td></tr>
+              <tr><td>작업장 정리·정돈</td><td>10점</td><td>—</td><td>0점</td></tr>
+              <tr><td>안전보건관리자 협조</td><td>10점</td><td>—</td><td>0점</td></tr>
+              <tr><td>위험성평가 참여</td><td>15점</td><td>8점</td><td>0점</td></tr>
+              <tr><td>법규·지침 준수</td><td>5점</td><td>3점</td><td>0점</td></tr>
+              <tr class="total-row"><td><b>합계</b></td><td colspan="3"><b>75점 만점 → 100점 환산</b></td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:8px">
+            <b>등급 기준:</b> 우수 90점↑ / 양호 70~89점 / 미흡 69점↓
+          </p>
+        </div>
+      </details>`;
+  }
 }
 
 // ============================================================
