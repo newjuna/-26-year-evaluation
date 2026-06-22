@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxrTryP8KTQDklDCfEbFcs4nBnK1CKbJlkKhdHQ1pQBFuobXWcE9QpZJpx1r4rXn0iT/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -363,32 +363,32 @@ function updateNav() {
 }
 
 // ============================================================
-// 사진 즉시 업로드 (여러 장 지원 + 강한 압축 + 메모리 즉시 해제)
+// 사진 즉시 업로드 (순차 처리 — 폴더 중복 생성 방지)
 // ============================================================
-function onPhoto(input) {
-  const qid = input.dataset.qid;
+async function onPhoto(input) {
+  const qid   = input.dataset.qid;
   const files = Array.from(input.files);
   if (!files.length) return;
 
   const st = document.getElementById(`photo-st-${qid}`);
-  st.innerHTML = `<span class="spinner"></span> 0 / ${files.length}장 업로드 중...`;
-
-  // 기존 URL 배열 초기화
   if (!answers[qid].photoUrls) answers[qid].photoUrls = [];
   answers[qid].photoUrls = [];
 
-  let done = 0;
   const previews = [];
+  let done = 0;
 
-  files.forEach((file, i) => {
-    // 강한 압축: 800px, quality 0.6 (메모리 최소화)
-    compress(file, 800, 0.6).then(b64 => {
-      previews[i] = b64;
+  st.innerHTML = `<span class="spinner"></span> 0 / ${files.length}장 업로드 중...`;
+
+  // 순차 처리 (for...of) — 동시 업로드 시 Drive 폴더 중복 생성 방지
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const b64    = await compress(files[i], 800, 0.6);
+      previews[i]  = b64;
       const base64 = b64.split(',')[1];
-      const empId = 'AD' + document.getElementById('inp-empid').value.trim();
-      const store = selectedOrg.store;
+      const empId  = 'AD' + document.getElementById('inp-empid').value.trim();
+      const store  = selectedOrg.store;
 
-      return fetch(GAS_URL, {
+      const res = await fetch(GAS_URL, {
         method: 'POST',
         body: JSON.stringify({
           action: 'uploadPhoto', base64,
@@ -399,28 +399,27 @@ function onPhoto(input) {
           photoIndex: i + 1
         })
       });
-    })
-    .then(r => r.json())
-    .then(r => {
+      const r = await res.json();
       done++;
-      if (r.ok) answers[qid].photoUrls.push(r.fileUrl);
-      // 첫 번째 사진 URL을 photoUrl에도 저장 (하위 호환)
-      if (answers[qid].photoUrls.length > 0) {
-        answers[qid].photoUrl = answers[qid].photoUrls[0];
+
+      if (r.ok) {
+        answers[qid].photoUrls.push(r.fileUrl);
+        if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
       }
 
+      // 진행 상황 업데이트
       st.innerHTML = done < files.length
         ? `<span class="spinner"></span> ${done} / ${files.length}장 업로드 중...`
         : `<div style="color:#16a34a;font-size:13px;margin-bottom:6px">✅ ${done}장 업로드 완료</div>`
-          + previews.filter(Boolean).map(b64 =>
-              `<img src="${b64}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
+          + previews.filter(Boolean).map(b =>
+              `<img src="${b}" style="width:calc(50% - 4px);display:inline-block;border-radius:8px;margin:2px;max-height:120px;object-fit:cover">`
             ).join('');
-    })
-    .catch(() => {
+
+    } catch(e) {
       done++;
       st.innerHTML = `<span style="color:#E60012;font-size:13px">⚠️ ${i+1}번 사진 업로드 실패. 다시 시도해주세요.</span>`;
-    });
-  });
+    }
+  }
 }
 
 function compress(file, max, q) {
