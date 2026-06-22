@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz-7u_bzQAd51B81ePtVs9pf2GcB3AwH3BtMbbW1Veu5y1dD1_Ja15vt44H9-cxjSKL/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbweumKHaLPbo_XFqWyNGoLkyPhMZwikUvq4z2-NTfvW2QJyJqaKjDCT1XxOIhLh-DzE/exec';
 
 // ============================================================
 // 평가 항목
@@ -80,36 +80,59 @@ let signCanvas, signCtx, isDrawing = false, hasSigned = false;
 // 초기화
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  showGuide();
-  loadOrgTree();
   setupInfoForm();
   initSignCanvas();
   document.getElementById('btn-submit').addEventListener('click', submitEval);
+  // 가이드 팝업 + 조직도 로딩 동시 시작
+  startGuideAndLoad();
 });
 
 // ============================================================
-// 가이드 팝업
+// 가이드 팝업 + 조직도 로딩 동시 진행
+// 스텝 4개를 2초 간격으로 하나씩 등장
+// 조직도 로딩 완료 AND 스텝 전부 나온 뒤 버튼 활성화
 // ============================================================
-function showGuide() {
-  const overlay = document.getElementById('guide-overlay');
-  overlay.style.display = 'flex';
-  const btn = document.getElementById('guide-close-btn');
-  const countdown = document.getElementById('guide-countdown');
-  let sec = 3;
+let orgLoaded = false;
+let guideStepsAllShown = false;
 
-  // 즉시 첫 숫자 표시
-  countdown.textContent = `${sec}초 후 닫기 버튼이 활성화됩니다`;
+function startGuideAndLoad() {
+  // 조직도 로딩 시작 (백그라운드)
+  loadOrgTree();
 
-  const timer = setInterval(() => {
-    sec--;
-    if (sec > 0) {
-      countdown.textContent = `${sec}초 후 닫기 버튼이 활성화됩니다`;
-    } else {
-      clearInterval(timer);
-      btn.disabled = false;
-      countdown.textContent = '아래 버튼을 눌러 시작하세요';
-    }
-  }, 1000);
+  // 스텝 순차 등장: 0→2초, 1→4초, 2→6초, 3→8초
+  const STEP_DELAY = 2000; // 2초 간격
+  const totalSteps = 4;
+
+  for (let i = 0; i < totalSteps; i++) {
+    setTimeout(() => {
+      const el = document.getElementById(`gs-${i}`);
+      if (el) {
+        el.classList.remove('guide-step-hidden');
+        el.classList.add('guide-step-visible');
+      }
+      // 마지막 스텝 등장 완료
+      if (i === totalSteps - 1) {
+        guideStepsAllShown = true;
+        tryActivateGuideBtn();
+      }
+    }, STEP_DELAY * (i + 1));
+  }
+}
+
+// 조직도 로딩 + 스텝 표시 둘 다 완료됐을 때만 버튼 활성화
+function tryActivateGuideBtn() {
+  if (!orgLoaded || !guideStepsAllShown) return;
+
+  const loadingRow = document.getElementById('guide-loading-row');
+  if (loadingRow) {
+    loadingRow.innerHTML = '<span style="color:#16a34a;font-size:18px">✅</span> <span style="color:#16a34a;font-weight:600">데이터 준비 완료!</span>';
+    loadingRow.classList.add('done');
+  }
+  const status = document.getElementById('guide-status');
+  if (status) status.textContent = '준비가 완료됐습니다. 아래 버튼을 눌러 시작하세요.';
+
+  const btn = document.getElementById('guide-btn');
+  if (btn) btn.disabled = false;
 }
 
 function closeGuide() {
@@ -117,7 +140,7 @@ function closeGuide() {
 }
 
 // ============================================================
-// 조직도 로드 + flat 목록 생성
+// 조직도 로드
 // ============================================================
 async function loadOrgTree() {
   try {
@@ -125,7 +148,6 @@ async function loadOrgTree() {
     const json = await res.json();
     if (json.ok) {
       orgTree = json.data;
-      // flat 목록: 매장 검색용
       orgFlatList = [];
       Object.entries(orgTree).forEach(([hq, depts]) => {
         Object.entries(depts).forEach(([dept, teams]) => {
@@ -140,6 +162,9 @@ async function loadOrgTree() {
   } catch (e) {
     console.error('조직도 로드 실패', e);
   }
+  // 성공/실패 무관하게 완료 처리
+  orgLoaded = true;
+  tryActivateGuideBtn();
 }
 
 // ============================================================

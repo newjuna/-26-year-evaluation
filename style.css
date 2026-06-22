@@ -806,3 +806,27 @@ body {
   border: 1px solid var(--gray-200);
   display: block;
 }
+
+/* ── 가이드 팝업 로딩 행 ── */
+.guide-loading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 0;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+.guide-loading-row.done { color: var(--green); }
+
+/* ── 가이드 스텝: 처음엔 숨김 ── */
+.guide-step-hidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+/* JS에서 이 클래스를 제거하면 등장 */
+.guide-step-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
