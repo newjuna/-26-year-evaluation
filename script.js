@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_oiaPaaIBa7AYq8oN_G1sf0vcTrkQTY1W32U7MftAKZLsqD4wYWYe-VUzpUE0Yn1D/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwbYHNhh4WRvfcKdXgsnkRWsqM2ERHJ7flOCfsUBDCiiXnuCuShBETxcc-3y94t1Cdk/exec';
 
 // ============================================================
 // 평가 항목
@@ -264,7 +264,7 @@ function buildCards() {
           </button>
         </div>
         <div class="memo-box" id="memo-box-${item.id}">
-          <div class="memo-lbl">📝 미흡 사유 (선택)</div>
+          <div class="memo-lbl" id="memo-lbl-${item.id}">📝 미흡 사유 (선택)</div>
           <textarea id="memo-${item.id}" rows="2" placeholder="간략히 적어주세요"
                     oninput="answers['${item.id}'].memo=this.value"></textarea>
         </div>
@@ -302,8 +302,28 @@ function pickLevel(btn) {
   btn.classList.add('sel');
   answers[qid].score = lv;
   const mb = document.getElementById(`memo-box-${qid}`);
-  if (lv === '하') mb.classList.add('open');
-  else { mb.classList.remove('open'); answers[qid].memo = ''; document.getElementById(`memo-${qid}`).value = ''; }
+  const memoLbl = document.getElementById(`memo-lbl-${qid}`);
+  const memoInput = document.getElementById(`memo-${qid}`);
+
+  // q06(위험성평가)은 상/중/하 모두 메모 표시, 나머지는 '하'만
+  if (qid === 'q06') {
+    mb.classList.add('open');
+    if (lv === '하') {
+      memoLbl.textContent = '📝 미흡 사유 (선택)';
+      memoInput.placeholder = '간략히 적어주세요';
+    } else {
+      memoLbl.textContent = '📝 메모 (선택)';
+      memoInput.placeholder = '예) 통합점검 받은 경우 점검일자 기입 (26/5/4)';
+    }
+  } else {
+    if (lv === '하') {
+      mb.classList.add('open');
+    } else {
+      mb.classList.remove('open');
+      answers[qid].memo = '';
+      memoInput.value = '';
+    }
+  }
   updateProgress();
 }
 
