@@ -55,6 +55,8 @@ let guideStepsAllShown = false;
 document.addEventListener('DOMContentLoaded', () => {
   // 서명 화면 제거했으므로 initSignCanvas 호출 안 함
   startGuideAndLoad();
+  // 임시저장 확인 (가이드 스텝 다 나온 뒤 약간 늦게)
+  setTimeout(checkDraft, 3500);
 });
 
 // ============================================================
@@ -209,6 +211,7 @@ function startEval() {
   showScreen('screen-eval');
   updateProgress();
   updateNav();
+  saveDraft();
 }
 
 // ============================================================
@@ -266,7 +269,7 @@ function buildCards() {
         <div class="memo-box" id="memo-box-${item.id}">
           <div class="memo-lbl" id="memo-lbl-${item.id}">📝 미흡 사유 (선택)</div>
           <textarea id="memo-${item.id}" rows="2" placeholder="간략히 적어주세요"
-                    oninput="answers['${item.id}'].memo=this.value"></textarea>
+                    oninput="answers['${item.id}'].memo=this.value;saveDraft()"></textarea>
         </div>
       </div>`;
     wrap.appendChild(card);
@@ -325,6 +328,7 @@ function pickLevel(btn) {
     }
   }
   updateProgress();
+  saveDraft();
 }
 
 function goPrev() { if (currentIdx > 0) showCard(currentIdx - 1); }
@@ -444,72 +448,42 @@ function closePhotoSheet() {
 }
 
 // ============================================================
-// 사진 추가 (순차 처리 — 폴더 중복 생성 방지, 백그라운드 업로드)
+// 사진 추가 — 즉시 업로드 안 함. Base64만 로컬 보관 (제출 시 업로드)
 // ============================================================
 function addPhoto(input) {
   const qid   = input.dataset.qid;
-  const files  = Array.from(input.files);
+  const files = Array.from(input.files);
   if (!files.length) return;
   input.value = '';
 
-  if (!answers[qid].photoUrls)    answers[qid].photoUrls    = [];
   if (!answers[qid].photoPreviews) answers[qid].photoPreviews = [];
 
-  // 먼저 미리보기 자리만 만들어 두고 (즉각 반응)
   const startIdx = answers[qid].photoPreviews.length;
-  files.forEach((_, i) => {
-    answers[qid].photoPreviews.push({ b64: null, url: null, uploading: true });
+  files.forEach(() => {
+    answers[qid].photoPreviews.push({ b64: null, compressing: true });
   });
   renderPhotoPreviews(qid);
 
-  // 순차 압축 + 순차 업로드 (async IIFE)
+  // 순차 압축 (용량 최소화: 800px, 품질 0.5)
   (async () => {
     for (let i = 0; i < files.length; i++) {
       const idx = startIdx + i;
       try {
-        const b64 = await compress(files[i], 800, 0.6);
-        answers[qid].photoPreviews[idx].b64 = b64;
-        renderPhotoPreviews(qid);
-
-        const base64 = b64.split(',')[1];
-        const empId  = 'AD' + (document.getElementById('inp-empid')?.value.trim() || '');
-        const store  = selectedOrg.store;
-
-        const res = await fetch(GAS_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'uploadPhoto', base64, mimeType: 'image/jpeg',
-            empId, store,
-            org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
-            questionId: qid,
-            photoIndex: idx + 1
-          })
-        });
-        const r = await res.json();
-        if (r.ok) {
-          answers[qid].photoPreviews[idx].url = r.fileUrl;
-          answers[qid].photoPreviews[idx].uploading = false;
-          answers[qid].photoUrls = answers[qid].photoPreviews.filter(p => p.url).map(p => p.url);
-          if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
-        } else {
-          answers[qid].photoPreviews[idx].uploading = false;
-          answers[qid].photoPreviews[idx].error = true;
-        }
+        const b64 = await compress(files[i], 800, 0.5);
+        answers[qid].photoPreviews[idx] = { b64: b64, compressing: false };
       } catch(e) {
-        answers[qid].photoPreviews[idx].uploading = false;
-        answers[qid].photoPreviews[idx].error = true;
+        answers[qid].photoPreviews[idx] = { b64: null, compressing: false, error: true };
       }
       renderPhotoPreviews(qid);
+      saveDraft(); // 사진 추가될 때마다 임시저장
     }
   })();
 }
 
 function removePhoto(qid, idx) {
   answers[qid].photoPreviews.splice(idx, 1);
-  answers[qid].photoUrls = (answers[qid].photoPreviews || []).filter(p => p.url).map(p => p.url);
-  if (answers[qid].photoUrls.length > 0) answers[qid].photoUrl = answers[qid].photoUrls[0];
-  else answers[qid].photoUrl = '';
   renderPhotoPreviews(qid);
+  saveDraft();
 }
 
 function renderPhotoPreviews(qid) {
@@ -519,9 +493,8 @@ function renderPhotoPreviews(qid) {
   if (previews.length === 0) { list.innerHTML = ''; return; }
   list.innerHTML = previews.map((p, i) => `
     <div class="photo-thumb">
-      <img src="${p.b64}" alt="사진${i+1}">
-      ${p.uploading ? '<div class="photo-thumb-overlay"><span class="spinner"></span></div>' : ''}
-      ${p.error    ? '<div class="photo-thumb-overlay error">⚠️</div>' : ''}
+      ${p.b64 ? `<img src="${p.b64}" alt="사진${i+1}">` : '<div class="photo-thumb-overlay"><span class="spinner"></span></div>'}
+      ${p.error ? '<div class="photo-thumb-overlay error">⚠️</div>' : ''}
       <button class="photo-thumb-del" onclick="removePhoto('${qid}',${i})">✕</button>
     </div>`).join('');
 }
@@ -662,31 +635,73 @@ function showConfirmPopup() {
 }
 
 // ============================================================
-// 제출
+// 제출 — 사진을 이 시점에 순차 업로드 후 데이터 전송
 // ============================================================
 async function submitEval() {
-  // 최종 제출 확인 팝업
   const confirmed = await showConfirmPopup();
   if (!confirmed) return;
 
-  showOverlay(true); setStep(0,'active'); setBar(10);
+  showOverlay(true);
 
-  const empId  = 'AD' + document.getElementById('inp-empid').value.trim();
+  const empId   = 'AD' + document.getElementById('inp-empid').value.trim();
   const empName = document.getElementById('inp-name').value.trim();
-  const payload = {
-    action: 'submit',
-    org: { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team },
-    empName, empId, store: selectedOrg.store,
-    answers,
-    userAgent: navigator.userAgent,
-  };
+  const store   = selectedOrg.store;
+  const org     = { headquarter: selectedOrg.hq, department: selectedOrg.dept, team: selectedOrg.team };
 
-  await wait(300); setStep(0,'done'); setStep(1,'active'); setBar(35);
+  // 업로드할 사진 총 개수 계산
+  let totalPhotos = 0;
+  EVAL_ITEMS.forEach(item => {
+    const pv = answers[item.id].photoPreviews || [];
+    totalPhotos += pv.filter(p => p.b64).length;
+  });
 
   try {
+    // ── 1단계: 사진 순차 업로드 ──
+    setSubmitPhase('사진 업로드 중', totalPhotos > 0 ? 0 : 100);
+    let uploaded = 0;
+
+    for (const item of EVAL_ITEMS) {
+      const qid = item.id;
+      const previews = (answers[qid].photoPreviews || []).filter(p => p.b64);
+      const urls = [];
+      for (let i = 0; i < previews.length; i++) {
+        const base64 = previews[i].b64.split(',')[1];
+        const res = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'uploadPhoto', base64, mimeType: 'image/jpeg',
+            empId, store, org, questionId: qid, photoIndex: i + 1
+          })
+        });
+        const r = await res.json();
+        if (r.ok) urls.push(r.fileUrl);
+        uploaded++;
+        const pct = totalPhotos > 0 ? Math.round((uploaded / totalPhotos) * 70) : 70;
+        setSubmitPhase(`사진 업로드 중 (${uploaded}/${totalPhotos})`, pct);
+      }
+      answers[qid].photoUrls = urls;
+      answers[qid].photoUrl  = urls[0] || '';
+    }
+
+    // ── 2단계: 평가 데이터 전송 ──
+    setSubmitPhase('평가 데이터 저장 중', 80);
+    // Base64 미리보기 데이터는 제외하고 전송
+    const cleanAnswers = {};
+    EVAL_ITEMS.forEach(item => {
+      const a = answers[item.id];
+      cleanAnswers[item.id] = {
+        score: a.score,
+        memo: a.memo || '',
+        photoUrl: a.photoUrl || '',
+        photoUrls: a.photoUrls || []
+      };
+    });
+    const payload = {
+      action: 'submit', org, empName, empId, store,
+      answers: cleanAnswers, userAgent: navigator.userAgent,
+    };
     const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify(payload) });
     const json = await res.json();
-    setStep(1,'done'); setStep(2,'active'); setBar(75);
 
     if (!json.ok) {
       showOverlay(false);
@@ -694,14 +709,28 @@ async function submitEval() {
       alert('오류: ' + (json.error||'서버 오류')); return;
     }
 
-    await wait(400);
-    setStep(2,'done'); setStep(3,'done'); setBar(100);
+    // ── 3단계: 완료 ──
+    setSubmitPhase('완료', 100);
     await wait(500);
+    clearDraft(); // 임시저장 삭제
     showOverlay(false);
     showResult(json);
     showScreen('screen-done');
 
-  } catch(e) { showOverlay(false); alert('제출 오류: ' + e.message); }
+  } catch(e) {
+    showOverlay(false);
+    alert('제출 오류: ' + e.message + '\n다시 시도해주세요.');
+  }
+}
+
+// 제출 진행 상태 표시
+function setSubmitPhase(text, pct) {
+  const bar     = document.getElementById('submit-bar');
+  const label   = document.getElementById('submit-phase');
+  const percent = document.getElementById('submit-percent');
+  if (bar)     bar.style.width = pct + '%';
+  if (label)   label.textContent = text;
+  if (percent) percent.textContent = pct + '%';
 }
 
 function showResult(json) {
@@ -782,3 +811,127 @@ function setBar(p) {
   if (el) el.style.width = p + '%';
 }
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+// 임시저장 (localStorage) — 각자 브라우저에 저장, 사용자 간 안 섞임
+// ============================================================
+const DRAFT_KEY = 'daiso_eval_draft_v1';
+
+function saveDraft() {
+  try {
+    const draft = {
+      ts: Date.now(),
+      selectedOrg: selectedOrg,
+      empId: document.getElementById('inp-empid')?.value || '',
+      empName: document.getElementById('inp-name')?.value || '',
+      currentIdx: currentIdx,
+      answers: answers,
+      started: document.getElementById('screen-eval')?.classList.contains('active')
+            || document.getElementById('screen-sign')?.classList.contains('active'),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch(e) {
+    // 용량 초과 시 사진 제외하고 저장 시도
+    try {
+      const lite = JSON.parse(JSON.stringify(answers));
+      Object.keys(lite).forEach(k => { if (lite[k].photoPreviews) lite[k].photoPreviews = []; });
+      const draft = {
+        ts: Date.now(), selectedOrg, currentIdx,
+        empId: document.getElementById('inp-empid')?.value || '',
+        empName: document.getElementById('inp-name')?.value || '',
+        answers: lite, started: true, photoDropped: true,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch(_) {}
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch(_) {}
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(_) { return null; }
+}
+
+// 앱 시작 시 임시저장 확인
+function checkDraft() {
+  const draft = loadDraft();
+  if (!draft || !draft.started) return;
+
+  // 30일 지난 draft는 무시
+  if (Date.now() - draft.ts > 30 * 24 * 60 * 60 * 1000) { clearDraft(); return; }
+
+  const when = new Date(draft.ts);
+  const timeStr = `${when.getMonth()+1}/${when.getDate()} ${String(when.getHours()).padStart(2,'0')}:${String(when.getMinutes()).padStart(2,'0')}`;
+
+  const pop = document.createElement('div');
+  pop.className = 'confirm-overlay';
+  pop.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-icon">📝</div>
+      <div class="confirm-title">작성하던 평가가 있어요</div>
+      <div class="confirm-desc">
+        ${draft.selectedOrg?.store || ''} · ${draft.empName || ''}<br>
+        <span style="font-size:12px;color:#999">저장 시각: ${timeStr}</span>
+        ${draft.photoDropped ? '<br><span style="font-size:11px;color:#E60012">※ 사진은 용량 문제로 복원되지 않습니다</span>' : ''}
+      </div>
+      <div class="confirm-btns">
+        <button class="btn btn-gray" id="draft-new">새로 시작</button>
+        <button class="btn btn-primary" id="draft-resume">이어서 하기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(pop);
+
+  document.getElementById('draft-new').onclick = () => {
+    clearDraft(); pop.remove();
+  };
+  document.getElementById('draft-resume').onclick = () => {
+    restoreDraft(draft); pop.remove();
+  };
+}
+
+function restoreDraft(draft) {
+  // 가이드 팝업 닫기
+  const guide = document.getElementById('guide-overlay');
+  if (guide) guide.style.display = 'none';
+
+  selectedOrg = draft.selectedOrg || { hq:'', dept:'', team:'', store:'' };
+  answers = draft.answers || {};
+  // photoPreviews 누락 방어
+  EVAL_ITEMS.forEach(item => {
+    if (!answers[item.id]) answers[item.id] = { score:null, photoUrl:'', photoUrls:[], photoPreviews:[], memo:'' };
+    if (!answers[item.id].photoPreviews) answers[item.id].photoPreviews = [];
+  });
+
+  const inpEmpId = document.getElementById('inp-empid');
+  const inpName  = document.getElementById('inp-name');
+  if (inpEmpId) inpEmpId.value = (draft.empId || '').replace(/^AD/, '');
+  if (inpName)  inpName.value  = draft.empName || '';
+
+  currentIdx = draft.currentIdx || 0;
+  buildCards();
+
+  // 저장된 선택값 카드에 반영
+  EVAL_ITEMS.forEach(item => {
+    const a = answers[item.id];
+    if (a.score) {
+      const btn = document.querySelector(`.lv-btn[data-qid="${item.id}"][data-lv="${a.score}"]`);
+      if (btn) {
+        btn.classList.add('sel');
+        const mb = document.getElementById(`memo-box-${item.id}`);
+        if (item.id === 'q06') { if (mb) mb.classList.add('open'); }
+        else if (a.score === '하' && mb) mb.classList.add('open');
+      }
+    }
+    if (a.memo) { const mi = document.getElementById(`memo-${item.id}`); if (mi) mi.value = a.memo; }
+    renderPhotoPreviews(item.id);
+  });
+
+  showScreen('screen-eval');
+  showCard(currentIdx);
+}
