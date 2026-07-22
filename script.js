@@ -111,10 +111,22 @@ function selectHq(btn) {
   selectedOrg.hq = btn.dataset.val;
   selectedOrg.dept = ''; selectedOrg.team = ''; selectedOrg.store = '';
 
-  const depts = Object.keys(orgTree[selectedOrg.hq] || {});
-  fillSelect('sel-dept', depts, '부서를 선택하세요');
-  show('fg-dept');
-  hide('fg-team'); hide('fg-store'); hide('fg-empid'); hide('fg-name'); hide('divider-person');
+  // 공통 초기화
+  hide('fg-dept'); hide('fg-team'); hide('fg-dept-text'); hide('fg-team-text');
+  hide('fg-store'); hide('fg-empid'); hide('fg-name'); hide('divider-person');
+
+  if (selectedOrg.hq === '본사') {
+    // 본사: 조직이 매우 다양하므로 부서/팀 모두 직접 입력. 매장 개념 없음(fg-store 숨김 유지)
+    document.getElementById('inp-dept').value = '';
+    document.getElementById('inp-team').value = '';
+    show('fg-dept-text');
+    show('fg-team-text');
+  } else {
+    // 영업본부: 기존 계단식 드롭다운
+    const depts = Object.keys(orgTree[selectedOrg.hq] || {});
+    fillSelect('sel-dept', depts, '부서를 선택하세요');
+    show('fg-dept');
+  }
   checkReady();
 }
 
@@ -141,6 +153,22 @@ function selectTeam() {
   hide('fg-empid'); hide('fg-name'); hide('divider-person');
   document.getElementById('inp-store').value = '';
   document.getElementById('inp-store').focus();
+  checkReady();
+}
+
+// 본사: 부서명/팀명 직접 입력 시 처리 (본사는 매장 개념이 없어 store=team으로 대체)
+function onHqTextInput() {
+  selectedOrg.dept = document.getElementById('inp-dept').value.trim();
+  selectedOrg.team = document.getElementById('inp-team').value.trim();
+  if (selectedOrg.dept && selectedOrg.team) {
+    selectedOrg.store = selectedOrg.team; // 매장명 칸 없이, 팀명을 매장명 값으로 사용(시트/중복확인/PDF 호환)
+    show('divider-person');
+    show('fg-empid');
+    show('fg-name');
+  } else {
+    selectedOrg.store = '';
+    hide('fg-empid'); hide('fg-name'); hide('divider-person');
+  }
   checkReady();
 }
 
@@ -376,7 +404,7 @@ function buildSubmitSummary() {
       <span class="summary-grade" style="border-color:${gradeColor};color:${gradeColor}">${grade}</span>
     </div>
     <div class="summary-info">
-      <span>매장: ${selectedOrg.store}</span>
+      <span>${selectedOrg.hq === '본사' ? '팀' : '매장'}: ${selectedOrg.store}</span>
       <span>${document.getElementById('inp-name').value}</span>
     </div>
     <div class="summary-items">${rows}</div>`;

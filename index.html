@@ -89,13 +89,14 @@
     <!-- 영업본부 버튼 -->
     <div class="field-group">
       <div class="field-label">영업본부</div>
-      <div class="hq-grid">
+      <div class="hq-grid hq-grid-3">
         <button class="hq-btn" data-val="수도권영업부문" onclick="selectHq(this)">수도권<br>영업본부</button>
         <button class="hq-btn" data-val="지방영업부문" onclick="selectHq(this)">지방<br>영업본부</button>
+        <button class="hq-btn" data-val="본사" onclick="selectHq(this)">본사</button>
       </div>
     </div>
 
-    <!-- 부서 -->
+    <!-- 부서 (영업본부 선택 시: 드롭다운) -->
     <div class="field-group slide-in" id="fg-dept" style="display:none">
       <div class="field-label">부서명</div>
       <div class="select-box">
@@ -106,7 +107,7 @@
       </div>
     </div>
 
-    <!-- 팀 -->
+    <!-- 팀 (영업본부 선택 시: 드롭다운) -->
     <div class="field-group slide-in" id="fg-team" style="display:none">
       <div class="field-label">팀명</div>
       <div class="select-box">
@@ -117,7 +118,19 @@
       </div>
     </div>
 
-    <!-- 매장 — 직접 입력 -->
+    <!-- 부서/팀 (본사 선택 시: 직접 입력, 매장 개념 없음) -->
+    <div class="field-group slide-in" id="fg-dept-text" style="display:none">
+      <div class="field-label">소속 <span style="color:var(--g500);font-weight:400;font-size:11px">직접 입력 (본부/부문/부서, 예: 경영지원본부 인사부문 인사부)</span></div>
+      <input type="text" id="inp-dept" class="text-input" placeholder="소속 본부/부문/부서를 입력하세요"
+             autocomplete="off" oninput="onHqTextInput()">
+    </div>
+    <div class="field-group slide-in" id="fg-team-text" style="display:none">
+      <div class="field-label">팀명 <span style="color:var(--g500);font-weight:400;font-size:11px">직접 입력</span></div>
+      <input type="text" id="inp-team" class="text-input" placeholder="팀명을 입력하세요 (예: 인사팀)"
+             autocomplete="off" oninput="onHqTextInput()">
+    </div>
+
+    <!-- 매장 — 직접 입력 (영업본부 전용, 본사는 매장 개념 없어 숨김) -->
     <div class="field-group slide-in" id="fg-store" style="display:none">
       <div class="field-label">매장명 <span style="color:var(--g500);font-weight:400;font-size:11px">직접 입력</span></div>
       <input type="text" id="inp-store" class="text-input" placeholder="매장명을 입력하세요 (예: 강남점)"

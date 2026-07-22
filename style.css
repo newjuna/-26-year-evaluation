@@ -61,6 +61,7 @@ body {
 
 /* ── 영업본부 버튼 ── */
 .hq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hq-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
 .hq-btn {
   padding: 18px 8px; border: 2px solid var(--g200); border-radius: 14px;
   background: #fff; font-size: 14px; font-weight: 700; color: var(--g700);
